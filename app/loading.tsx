@@ -1,0 +1,1 @@
+export default function Loading(){return <main className="grid min-h-screen place-items-center bg-[#f7f8fc]"><div className="text-center"><div className="mx-auto size-10 animate-spin rounded-full border-4 border-orange-200 border-t-orange-500"/><p className="mt-4 text-sm font-semibold text-slate-500">Loading AutoServe...</p></div></main>}

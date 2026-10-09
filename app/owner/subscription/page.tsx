@@ -1,0 +1,1 @@
+import RoleGuard from "../../../components/auth/RoleGuard";import PageComponent from "../../../components/owner/subscription";export default function Page(){return <RoleGuard role="owner"><PageComponent/></RoleGuard>}

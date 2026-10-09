@@ -1,0 +1,3 @@
+import Link from "next/link";
+import {ArrowLeft,Car} from "lucide-react";
+export default function NotFound(){return <main className="mesh grid min-h-screen place-items-center p-6"><div className="card max-w-lg p-10 text-center"><div className="mx-auto grid size-16 place-items-center rounded-2xl bg-slate-950 text-orange-400"><Car/></div><p className="mt-6 text-xs font-black uppercase tracking-[.2em] text-orange-500">404</p><h1 className="mt-2 text-3xl font-black">Workspace not found</h1><p className="muted mt-2">The page you requested does not exist in this frontend.</p><Link href="/" className="btn btn-primary mt-7"><ArrowLeft size={17}/> Back home</Link></div></main>}

@@ -1,0 +1,1 @@
+"use client";import {useEffect,useState} from "react";import {getSessionRole,type Role} from "../lib/auth";export function useAuth(){const[role,setRole]=useState<Role|null>(null);useEffect(()=>setRole(getSessionRole()),[]);return{role,isLoggedIn:!!role}}

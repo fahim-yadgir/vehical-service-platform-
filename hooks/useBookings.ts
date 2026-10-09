@@ -1,0 +1,1 @@
+"use client";import {useState} from "react";import {bookings as initial} from "../lib/mock-data";export function useBookings(){const[bookings,setBookings]=useState(initial);return{bookings,setBookings}}

@@ -1,0 +1,1 @@
+"use client";import {useState} from "react";import {vehicles as initial} from "../lib/mock-data";export function useVehicles(){const[vehicles,setVehicles]=useState(initial);return{vehicles,setVehicles}}

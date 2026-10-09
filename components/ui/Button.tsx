@@ -1,0 +1,2 @@
+"use client";import {ButtonHTMLAttributes} from "react";import {Loader2} from "lucide-react";
+export default function Button({children,className="",loading=false,...props}:ButtonHTMLAttributes<HTMLButtonElement>&{loading?:boolean}){return <button {...props} disabled={loading||props.disabled} className={`btn btn-primary ${className}`}><span className="inline-flex items-center gap-2">{loading&&<Loader2 size={16} className="animate-spin"/>}{children}</span></button>}
