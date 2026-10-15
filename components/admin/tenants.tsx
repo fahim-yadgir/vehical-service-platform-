@@ -60,39 +60,48 @@ export default function Tenants() {
 		store.dispatch({ type: "tenants/added", payload: tenant });
 	}
 
+	function changeFilter(filter: TenantFilter) {
+		store.dispatch({ type: "tenants/filterChanged", payload: filter });
+		setCurrentPage(1);
+	}
+
 	return (
 		<AppShell role="admin">
 			<Topbar title="Tenants" subtitle="Service centres registered on the platform" />
 			<div className="container">
-				<div className="mb-5 flex justify-end">
+				<div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+					<label htmlFor="tenant-filter" className="sr-only">Filter tenants</label>
+					<select
+						id="tenant-filter"
+						value={selectedFilter}
+						onChange={(event) => changeFilter(event.target.value as TenantFilter)}
+						className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 lg:hidden"
+					>
+						{filters.map((filter) => {
+							const count = items.filter((tenant) => matchesFilter(tenant, filter.value, todayTime, thirtyDays)).length;
+							return <option key={filter.value} value={filter.value}>{filter.label} ({count})</option>;
+						})}
+					</select>
+					<div className="hidden flex-wrap items-center gap-1.5 lg:flex" aria-label="Tenant filters">
+						{filters.map((filter) => {
+							const count = items.filter((tenant) => matchesFilter(tenant, filter.value, todayTime, thirtyDays)).length;
+							return (
+								<button
+									key={filter.value}
+									type="button"
+									aria-pressed={selectedFilter === filter.value}
+									title={filter.label}
+									onClick={() => changeFilter(filter.value)}
+									className={`whitespace-nowrap rounded-lg px-2.5 py-2 text-xs font-semibold transition ${selectedFilter === filter.value ? "bg-orange-50 text-orange-700" : "text-slate-600 hover:bg-slate-50"}`}
+								>
+									{filter.label} <span className="opacity-70">{count}</span>
+								</button>
+							);
+						})}
+					</div>
 					<Button onClick={addDemoTenant}>Add demo tenant</Button>
 				</div>
-				<div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-					<aside className="self-start" aria-label="Tenant filters">
-						<h2 className="mb-3 text-sm font-black uppercase tracking-wide text-slate-500">Filters</h2>
-						<div className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible">
-							{filters.map((filter) => {
-								const count = items.filter((tenant) => matchesFilter(tenant, filter.value, todayTime, thirtyDays)).length;
-								return (
-									<button
-										key={filter.value}
-										type="button"
-										aria-pressed={selectedFilter === filter.value}
-										onClick={() => {
-											store.dispatch({ type: "tenants/filterChanged", payload: filter.value });
-											setCurrentPage(1);
-										}}
-										className={`flex shrink-0 items-center justify-between gap-4 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition ${selectedFilter === filter.value ? "bg-orange-50 text-orange-700" : "text-slate-600 hover:bg-slate-50"}`}
-									>
-										<span>{filter.label}</span>
-										<span className="text-xs tabular-nums opacity-70">{count}</span>
-									</button>
-								);
-							})}
-						</div>
-					</aside>
-
-					<div className="min-w-0">
+				<div className="min-w-0">
 						<DataTable
 							headers={["Tenant", "Owner", "Users", "Plan", "Subscription expiry", "Status", "Action"]}
 							rows={pageItems.map((tenant) => [
@@ -129,7 +138,6 @@ export default function Tenants() {
 							</nav>
 						)}
 					</div>
-				</div>
 			</div>
 		</AppShell>
 	);
