@@ -14,6 +14,7 @@ export default function Dashboard() {
   const selectedMonth = useAppSelector((state) => state.selectedRevenueMonth);
   const selectedRevenue = revenue.find(({ month }) => month === selectedMonth);
   const activeServices = tenants.filter((tenant) => tenant.status === "Active").length;
+  const totalMembers = tenants.reduce((count, tenant) => count + tenant.users, 0);
   const activeMembers = tenants.reduce(
     (count, tenant) => count + (tenant.status === "Active" ? tenant.users : 0),
     0,
@@ -54,15 +55,21 @@ export default function Dashboard() {
 
         <div className="grid-auto">
           <KpiCard
-            icon="building"
-            label="Active services"
-            value={activeServices.toLocaleString()}
+            icon="users"
+            label="Total members"
+            value={totalMembers.toLocaleString()}
           />
 
           <KpiCard
             icon="users"
-            label="Total active members"
+            label="Active members"
             value={activeMembers.toLocaleString()}
+          />
+
+          <KpiCard
+            icon="building"
+            label="Active services"
+            value={activeServices.toLocaleString()}
           />
 
           <KpiCard

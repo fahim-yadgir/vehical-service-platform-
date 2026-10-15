@@ -13,6 +13,8 @@ export type RecentMember = {
   status: "Active" | "Inactive";
 };
 
+export type TenantFilter = "all" | "new" | "old" | "expiring" | "expired" | "active" | "suspended";
+
 export const recentMembers: RecentMember[] = [
   { id: "MEM1048", name: "Ananya Deshmukh", tenant: "AutoCare Pune", joined: "14 Oct 2026", status: "Active" },
   { id: "MEM1047", name: "Kabir Joshi", tenant: "Speed Motors", joined: "12 Oct 2026", status: "Active" },
@@ -24,15 +26,18 @@ export const recentMembers: RecentMember[] = [
 type AppState = {
   tenants: Tenant[];
   selectedRevenueMonth: string;
+  tenantFilter: TenantFilter;
 };
 
 type AppAction =
   | { type: "revenue/monthSelected"; payload: string }
-  | { type: "tenants/added"; payload: Tenant };
+  | { type: "tenants/added"; payload: Tenant }
+  | { type: "tenants/filterChanged"; payload: TenantFilter };
 
 const initialState: AppState = {
   tenants: initialTenants,
   selectedRevenueMonth: "Oct",
+  tenantFilter: "all",
 };
 
 function reducer(state: AppState, action: AppAction): AppState {
@@ -41,6 +46,8 @@ function reducer(state: AppState, action: AppAction): AppState {
       return { ...state, selectedRevenueMonth: action.payload };
     case "tenants/added":
       return { ...state, tenants: [...state.tenants, action.payload] };
+    case "tenants/filterChanged":
+      return { ...state, tenantFilter: action.payload };
     default:
       return state;
   }
