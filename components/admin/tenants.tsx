@@ -37,6 +37,7 @@ export default function Tenants() {
 	const items = useAppSelector((state) => state.tenants);
 	const selectedFilter = useAppSelector((state) => state.tenantFilter);
 	const [currentPage, setCurrentPage] = useState(1);
+	const [showTenantForm, setShowTenantForm] = useState(false);
 	const pageSize = 10;
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
@@ -46,18 +47,21 @@ export default function Tenants() {
 	const pageCount = Math.ceil(filteredItems.length / pageSize);
 	const pageItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-	function addDemoTenant() {
+	function addTenant(event: React.FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		const formData = new FormData(event.currentTarget);
 		const tenant: Tenant = {
 			id: `TEN00${items.length + 1}`,
-			name: "New Service Centre",
-			owner: "Demo Owner",
-			status: "Active",
-			plan: "1 Month",
-			users: 3,
+			name: String(formData.get("name")),
+			owner: String(formData.get("owner")),
+			status: String(formData.get("status")) as Tenant["status"],
+			plan: String(formData.get("plan")),
+			users: Number(formData.get("users")),
 			createdAt: new Date().toISOString().slice(0, 10),
-			subscriptionExpiresAt: new Date(Date.now() + thirtyDays).toISOString().slice(0, 10),
+			subscriptionExpiresAt: String(formData.get("subscriptionExpiresAt")),
 		};
 		store.dispatch({ type: "tenants/added", payload: tenant });
+		setShowTenantForm(false);
 	}
 
 	function changeFilter(filter: TenantFilter) {
@@ -99,8 +103,56 @@ export default function Tenants() {
 							);
 						})}
 					</div>
-					<Button onClick={addDemoTenant}>Add demo tenant</Button>
+					<Button onClick={() => setShowTenantForm((isOpen) => !isOpen)}>
+						{showTenantForm ? "Close form" : "Add demo tenant"}
+					</Button>
 				</div>
+				{showTenantForm && (
+					<section className="mb-5 rounded-xl border border-slate-200 bg-white p-5" aria-labelledby="add-tenant-heading">
+						<div className="mb-4">
+							<h2 id="add-tenant-heading" className="text-lg font-bold text-slate-900">Add tenant details</h2>
+							<p className="mt-1 text-sm text-slate-500">Enter the service centre and subscription information.</p>
+						</div>
+						<form onSubmit={addTenant} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+							<label className="block space-y-2">
+								<span className="text-sm font-bold text-slate-700">Service centre name</span>
+								<input name="name" required className="input" placeholder="e.g. City Auto Care" />
+							</label>
+							<label className="block space-y-2">
+								<span className="text-sm font-bold text-slate-700">Owner name</span>
+								<input name="owner" required className="input" placeholder="e.g. Asha Mehta" />
+							</label>
+							<label className="block space-y-2">
+								<span className="text-sm font-bold text-slate-700">Number of users</span>
+								<input name="users" type="number" min="1" required className="input" placeholder="1" />
+							</label>
+							<label className="block space-y-2">
+								<span className="text-sm font-bold text-slate-700">Subscription plan</span>
+								<select name="plan" required defaultValue="" className="input">
+									<option value="" disabled>Select a plan</option>
+									<option>1 Month</option>
+									<option>6 Months</option>
+									<option>1 Year</option>
+								</select>
+							</label>
+							<label className="block space-y-2">
+								<span className="text-sm font-bold text-slate-700">Subscription expiry</span>
+								<input name="subscriptionExpiresAt" type="date" required className="input" />
+							</label>
+							<label className="block space-y-2">
+								<span className="text-sm font-bold text-slate-700">Status</span>
+								<select name="status" defaultValue="Active" className="input">
+									<option>Active</option>
+									<option>Suspended</option>
+								</select>
+							</label>
+							<div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-3">
+								<Button type="submit">Save tenant</Button>
+								<button type="button" onClick={() => setShowTenantForm(false)} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
+							</div>
+						</form>
+					</section>
+				)}
 				<div className="min-w-0">
 						<DataTable
 							headers={["Tenant", "Owner", "Users", "Plan", "Subscription expiry", "Status", "Action"]}
