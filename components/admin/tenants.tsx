@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import AppShell from "../layout/AppShell";
 import Topbar from "../navbar/Topbar";
 import DataTable from "../tables/DataTable";
 import Badge from "../ui/Badge";
 import Button from "../ui/Button";
-import { store, useAppSelector, type Tenant, type TenantFilter } from "../../lib/redux-store";
+import { store, tenantsStorageKey, useAppSelector, type Tenant, type TenantFilter } from "../../lib/redux-store";
 
 const filters: { value: TenantFilter; label: string }[] = [
 	{ value: "all", label: "All tenants" },
@@ -38,6 +38,7 @@ export default function Tenants() {
 	const selectedFilter = useAppSelector((state) => state.tenantFilter);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [showTenantForm, setShowTenantForm] = useState(false);
+	const [tenantToEdit, setTenantToEdit] = useState<Tenant | null>(null);
 	const pageSize = 10;
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
@@ -47,21 +48,62 @@ export default function Tenants() {
 	const pageCount = Math.ceil(filteredItems.length / pageSize);
 	const pageItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-	function addTenant(event: React.FormEvent<HTMLFormElement>) {
+	useEffect(() => {
+		try {
+			const savedTenants = window.localStorage.getItem(tenantsStorageKey);
+			if (savedTenants) {
+				const tenants: unknown = JSON.parse(savedTenants);
+				if (Array.isArray(tenants)) {
+					store.dispatch({ type: "tenants/restored", payload: tenants as Tenant[] });
+				}
+			}
+		} catch {
+		}
+	}, []);
+
+	function saveTenant(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		const formData = new FormData(event.currentTarget);
-		const tenant: Tenant = {
-			id: `TEN00${items.length + 1}`,
+		const tenantDetails = {
 			name: String(formData.get("name")),
 			owner: String(formData.get("owner")),
 			status: String(formData.get("status")) as Tenant["status"],
 			plan: String(formData.get("plan")),
 			users: Number(formData.get("users")),
-			createdAt: new Date().toISOString().slice(0, 10),
 			subscriptionExpiresAt: String(formData.get("subscriptionExpiresAt")),
 		};
-		store.dispatch({ type: "tenants/added", payload: tenant });
+		if (tenantToEdit) {
+			store.dispatch({
+				type: "tenants/updated",
+				payload: { ...tenantToEdit, ...tenantDetails },
+			});
+		} else {
+			const latestId = items.reduce((latest, tenant) => Math.max(latest, Number(tenant.id.replace(/\D/g, "")) || 0), 0);
+			store.dispatch({
+				type: "tenants/added",
+				payload: {
+					id: `TEN${String(latestId + 1).padStart(3, "0")}`,
+					...tenantDetails,
+					createdAt: new Date().toISOString().slice(0, 10),
+				},
+			});
+		}
 		setShowTenantForm(false);
+		setTenantToEdit(null);
+	}
+
+	function openTenantForm(tenant?: Tenant) {
+		setTenantToEdit(tenant ?? null);
+		setShowTenantForm(true);
+	}
+
+	function deleteTenant(tenant: Tenant) {
+		store.dispatch({ type: "tenants/deleted", payload: tenant.id });
+		if (tenantToEdit?.id === tenant.id) {
+			setShowTenantForm(false);
+			setTenantToEdit(null);
+		}
+		setCurrentPage(1);
 	}
 
 	function changeFilter(filter: TenantFilter) {
@@ -103,32 +145,32 @@ export default function Tenants() {
 							);
 						})}
 					</div>
-					<Button onClick={() => setShowTenantForm((isOpen) => !isOpen)}>
+					<Button onClick={() => showTenantForm ? setShowTenantForm(false) : openTenantForm()}>
 						{showTenantForm ? "Close form" : "Add demo tenant"}
 					</Button>
 				</div>
 				{showTenantForm && (
 					<section className="mb-5 rounded-xl border border-slate-200 bg-white p-5" aria-labelledby="add-tenant-heading">
 						<div className="mb-4">
-							<h2 id="add-tenant-heading" className="text-lg font-bold text-slate-900">Add tenant details</h2>
-							<p className="mt-1 text-sm text-slate-500">Enter the service centre and subscription information.</p>
+							<h2 id="add-tenant-heading" className="text-lg font-bold text-slate-900">{tenantToEdit ? "Manage tenant" : "Add tenant details"}</h2>
+							<p className="mt-1 text-sm text-slate-500">{tenantToEdit ? `Update details for ${tenantToEdit.name}.` : "Enter the service centre and subscription information."}</p>
 						</div>
-						<form onSubmit={addTenant} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+						<form key={tenantToEdit?.id ?? "new-tenant"} onSubmit={saveTenant} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 							<label className="block space-y-2">
 								<span className="text-sm font-bold text-slate-700">Service centre name</span>
-								<input name="name" required className="input" placeholder="e.g. City Auto Care" />
+								<input name="name" required className="input" defaultValue={tenantToEdit?.name ?? ""} placeholder="e.g. City Auto Care" />
 							</label>
 							<label className="block space-y-2">
 								<span className="text-sm font-bold text-slate-700">Owner name</span>
-								<input name="owner" required className="input" placeholder="e.g. Asha Mehta" />
+								<input name="owner" required className="input" defaultValue={tenantToEdit?.owner ?? ""} placeholder="e.g. Asha Mehta" />
 							</label>
 							<label className="block space-y-2">
 								<span className="text-sm font-bold text-slate-700">Number of users</span>
-								<input name="users" type="number" min="1" required className="input" placeholder="1" />
+								<input name="users" type="number" min="1" required className="input" defaultValue={tenantToEdit?.users ?? ""} placeholder="1" />
 							</label>
 							<label className="block space-y-2">
 								<span className="text-sm font-bold text-slate-700">Subscription plan</span>
-								<select name="plan" required defaultValue="" className="input">
+								<select name="plan" required defaultValue={tenantToEdit?.plan ?? ""} className="input">
 									<option value="" disabled>Select a plan</option>
 									<option>1 Month</option>
 									<option>6 Months</option>
@@ -137,18 +179,18 @@ export default function Tenants() {
 							</label>
 							<label className="block space-y-2">
 								<span className="text-sm font-bold text-slate-700">Subscription expiry</span>
-								<input name="subscriptionExpiresAt" type="date" required className="input" />
+								<input name="subscriptionExpiresAt" type="date" required className="input" defaultValue={tenantToEdit?.subscriptionExpiresAt ?? ""} />
 							</label>
 							<label className="block space-y-2">
 								<span className="text-sm font-bold text-slate-700">Status</span>
-								<select name="status" defaultValue="Active" className="input">
+								<select name="status" defaultValue={tenantToEdit?.status ?? "Active"} className="input">
 									<option>Active</option>
 									<option>Suspended</option>
 								</select>
 							</label>
 							<div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-3">
-								<Button type="submit">Save tenant</Button>
-								<button type="button" onClick={() => setShowTenantForm(false)} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
+								<Button type="submit">{tenantToEdit ? "Save changes" : "Save tenant"}</Button>
+								<button type="button" onClick={() => { setShowTenantForm(false); setTenantToEdit(null); }} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
 							</div>
 						</form>
 					</section>
@@ -165,9 +207,10 @@ export default function Tenants() {
 								<Badge key="status" tone={tenant.status === "Active" ? "green" : "red"}>
 									{tenant.status}
 								</Badge>,
-								<button key="action" className="rounded-xl border px-3 py-2 text-xs font-bold">
-									Manage
-								</button>,
+								<div key="actions" className="flex items-center gap-2">
+									<button type="button" onClick={() => openTenantForm(tenant)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Manage</button>
+									<button type="button" onClick={() => deleteTenant(tenant)} aria-label={`Delete ${tenant.name}`} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50">Delete</button>
+								</div>,
 							])}
 						/>
 						{filteredItems.length === 0 && (

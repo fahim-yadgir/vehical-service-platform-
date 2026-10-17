@@ -32,7 +32,12 @@ type AppState = {
 type AppAction =
   | { type: "revenue/monthSelected"; payload: string }
   | { type: "tenants/added"; payload: Tenant }
+  | { type: "tenants/updated"; payload: Tenant }
+  | { type: "tenants/deleted"; payload: string }
+  | { type: "tenants/restored"; payload: Tenant[] }
   | { type: "tenants/filterChanged"; payload: TenantFilter };
+
+export const tenantsStorageKey = "vehicle-service-platform.tenants";
 
 const initialState: AppState = {
   tenants: initialTenants,
@@ -46,6 +51,12 @@ function reducer(state: AppState, action: AppAction): AppState {
       return { ...state, selectedRevenueMonth: action.payload };
     case "tenants/added":
       return { ...state, tenants: [...state.tenants, action.payload] };
+    case "tenants/updated":
+      return { ...state, tenants: state.tenants.map((tenant) => tenant.id === action.payload.id ? action.payload : tenant) };
+    case "tenants/deleted":
+      return { ...state, tenants: state.tenants.filter((tenant) => tenant.id !== action.payload) };
+    case "tenants/restored":
+      return { ...state, tenants: action.payload };
     case "tenants/filterChanged":
       return { ...state, tenantFilter: action.payload };
     default:
@@ -60,6 +71,12 @@ export const store = {
   getState: () => state,
   dispatch: (action: AppAction) => {
     state = reducer(state, action);
+    if (typeof window !== "undefined" && (action.type === "tenants/added" || action.type === "tenants/updated" || action.type === "tenants/deleted")) {
+      try {
+        window.localStorage.setItem(tenantsStorageKey, JSON.stringify(state.tenants));
+      } catch {
+      }
+    }
     listeners.forEach((listener) => listener());
   },
   subscribe: (listener: () => void) => {
