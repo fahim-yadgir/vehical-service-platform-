@@ -2,12 +2,11 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import AppShell from "../layout/AppShell";
-import Topbar from "../navbar/Topbar";
-import DataTable from "../tables/DataTable";
-import Badge from "../ui/Badge";
-import Button from "../ui/Button";
-import { store, tenantsStorageKey, useAppSelector, type Tenant, type TenantFilter } from "../../lib/redux-store";
+import Topbar from "../../../../components/navbar/Topbar";
+import DataTable from "../../../../components/tables/DataTable";
+import Badge from "../../../../components/ui/Badge";
+import Button from "../../../../components/ui/Button";
+import { store, tenantsStorageKey, useAppSelector, type Tenant, type TenantFilter } from "../../../../lib/redux-store";
 
 const filters: { value: TenantFilter; label: string }[] = [
 	{ value: "all", label: "All tenants" },
@@ -112,7 +111,7 @@ export default function Tenants() {
 	}
 
 	return (
-		<AppShell role="admin">
+		<>
 			<Topbar title="Tenants" subtitle="Service centres registered on the platform" />
 			<div className="container">
 				<div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -234,6 +233,6 @@ export default function Tenants() {
 						)}
 					</div>
 			</div>
-		</AppShell>
+		</>
 	);
 }

@@ -1,0 +1,32 @@
+import Topbar from "../../../../components/navbar/Topbar";
+import DataTable from "../../../../components/tables/DataTable";
+import Badge from "../../../../components/ui/Badge";
+
+const users = [
+  ["USR001", "Fahim Yadgir", "Customer", "AutoCare Pune", "Active"],
+  ["USR002", "Rahul Patil", "Owner", "AutoCare Pune", "Active"],
+  ["USR003", "Amit Shah", "Manager", "Speed Motors", "Active"],
+  ["USR004", "Sameer Khan", "Owner", "Prime Auto", "Suspended"],
+];
+
+export default function Users() {
+  return (
+    <>
+      <Topbar title="Users" subtitle="Global identity and access overview" />
+      <div className="container">
+        <DataTable
+          headers={["ID", "Name", "Role", "Tenant", "Status"]}
+          rows={users.map((u) => [
+            u[0],
+            <b key="n">{u[1]}</b>,
+            u[2],
+            u[3],
+            <Badge key="s" tone={u[4] === "Active" ? "green" : "red"}>
+              {u[4]}
+            </Badge>,
+          ])}
+        />
+      </div>
+    </>
+  );
+}

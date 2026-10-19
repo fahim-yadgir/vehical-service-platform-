@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import AppShell from "../layout/AppShell";
-import Topbar from "../navbar/Topbar";
-import KpiCard from "../cards/KpiCard";
-import Badge from "../ui/Badge";
-import { recentMembers, revenueMonths, store, useAppSelector } from "../../lib/redux-store";
-import { revenue } from "../../lib/mock-data";
+import Topbar from "../../../../components/navbar/Topbar";
+import KpiCard from "../../../../components/cards/KpiCard";
+import Badge from "../../../../components/ui/Badge";
+import { recentMembers, revenueMonths, store, useAppSelector } from "../../../../lib/redux-store";
+import { revenue } from "../../../../lib/mock-data";
 
 export default function Dashboard() {
   const tenants = useAppSelector((state) => state.tenants);
@@ -28,7 +27,7 @@ export default function Dashboard() {
     : `₹${revenue.reduce((total, item) => total + item.value, 0).toFixed(1)}L`;
 
   return (
-    <AppShell role="admin">
+    <>
       <Topbar
         title="Platform Admin"
         subtitle="Global tenant, revenue and system health monitoring"
@@ -110,6 +109,6 @@ export default function Dashboard() {
           </div>
         </section>
       </div>
-    </AppShell>
+    </>
   );
 }

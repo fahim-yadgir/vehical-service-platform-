@@ -1,11 +1,10 @@
-import AppShell from "../layout/AppShell";
-import Topbar from "../navbar/Topbar";
-import RevenueChart from "../charts/RevenueChart";
-import KpiCard from "../cards/KpiCard";
+import Topbar from "../../../../components/navbar/Topbar";
+import RevenueChart from "../../../../components/charts/RevenueChart";
+import KpiCard from "../../../../components/cards/KpiCard";
 
 export default function Revenue() {
   return (
-    <AppShell role="admin">
+    <>
       <Topbar
         title="Revenue Analytics"
         subtitle="Platform monetization and billing overview"
@@ -43,6 +42,6 @@ export default function Revenue() {
           <RevenueChart />
         </div>
       </div>
-    </AppShell>
+    </>
   );
 }
