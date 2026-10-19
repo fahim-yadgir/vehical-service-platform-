@@ -1,1 +1,5 @@
-import RoleGuard from "../../../components/auth/RoleGuard";import PageComponent from "../../../components/admin/users";export default function Page(){return <RoleGuard role="admin"><PageComponent/></RoleGuard>}
+import PageComponent from "../../../components/admin/users";
+
+export default function Page() {
+  return <PageComponent />;
+}
