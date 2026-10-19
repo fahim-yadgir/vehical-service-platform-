@@ -1,5 +1,49 @@
-import PageComponent from "../../../components/customer/profile";
-
-export default function Page() {
-  return <PageComponent />;
+"use client";
+import { useState } from "react";
+import Topbar from "../../../components/navbar/Topbar";
+import Input from "../../../components/ui/Input";
+import Button from "../../../components/ui/Button";
+import { CheckCircle2, UserRound } from "lucide-react";
+export default function Profile() {
+  const [saved, setSaved] = useState(false);
+  return (
+    <>
+      <Topbar title="Profile" subtitle="Manage your customer details" />
+      <div className="container">
+        <div className="card mx-auto max-w-3xl p-6 sm:p-8">
+          <div className="flex items-center gap-4 border-b pb-6">
+            <div className="grid size-14 place-items-center rounded-2xl bg-slate-950 text-orange-400">
+              <UserRound />
+            </div>
+            <div>
+              <h2 className="text-xl font-black">Fahim Yadgir</h2>
+              <p className="muted text-sm">Customer profile · frontend demo</p>
+            </div>
+          </div>
+          <div className="mt-6 grid gap-5 sm:grid-cols-2">
+            <Input label="Full name" defaultValue="Fahim Yadgir" />
+            <Input label="Mobile" defaultValue="+91 98XXXXXX10" />
+            <Input label="Email" defaultValue="fahim@example.com" />
+            <Input label="City" defaultValue="Pune" />
+          </div>
+          <div className="mt-6 flex items-center justify-between gap-3">
+            <span
+              className={`text-sm font-bold text-emerald-600 transition ${saved ? "opacity-100" : "opacity-0"}`}
+            >
+              <CheckCircle2 className="mr-1 inline" size={16} />
+              Saved locally
+            </span>
+            <Button
+              onClick={() => {
+                setSaved(true);
+                setTimeout(() => setSaved(false), 1800);
+              }}
+            >
+              Save changes
+            </Button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }

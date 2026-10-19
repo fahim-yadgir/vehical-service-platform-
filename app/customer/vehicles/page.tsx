@@ -1,5 +1,83 @@
-import PageComponent from "../../../components/customer/vehicles";
-
-export default function Page() {
-  return <PageComponent />;
+"use client";
+import { useState } from "react";
+import Topbar from "../../../components/navbar/Topbar";
+import Button from "../../../components/ui/Button";
+import SectionHeading from "../../../components/ui/SectionHeading";
+import Badge from "../../../components/ui/Badge";
+import { vehicles as initial } from "../../../lib/mock-data";
+import { Car, Plus, ShieldCheck } from "lucide-react";
+export default function VehiclesPage() {
+  const [items, setItems] = useState(initial);
+  return (
+    <>
+      <Topbar
+        title="My Vehicles"
+        subtitle="Keep your garage ready for the next service"
+      />
+      <div className="container">
+        <SectionHeading
+          eyebrow="Garage"
+          title="Your vehicles"
+          description="Vehicle records are frontend demo data."
+          action={
+            <Button
+              onClick={() =>
+                setItems([
+                  ...items,
+                  {
+                    ...initial[0],
+                    id: `V00${items.length + 1}`,
+                    registration: `MH12DE${1000 + items.length}`,
+                  },
+                ])
+              }
+            >
+              <Plus size={17} />
+              Add vehicle
+            </Button>
+          }
+        />
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {items.map((v, i) => (
+            <article
+              key={v.id}
+              className="card group overflow-hidden p-5 transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+            >
+              <div className="flex items-start justify-between">
+                <div className="grid size-14 place-items-center rounded-2xl bg-slate-950 text-orange-400">
+                  <Car size={27} />
+                </div>
+                <Badge tone={v.health && v.health > 80 ? "green" : "yellow"}>
+                  {v.health}% health
+                </Badge>
+              </div>
+              <h3 className="mt-5 text-xl font-black">
+                {v.brand} {v.model}
+              </h3>
+              <p className="mt-1 font-mono text-sm text-slate-500">
+                {v.registration}
+              </p>
+              <div className="mt-5 space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Type</span>
+                  <b>{v.type}</b>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Year</span>
+                  <b>{v.year}</b>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Last service</span>
+                  <b>{v.lastService}</b>
+                </div>
+              </div>
+              <div className="mt-5 flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs font-bold text-emerald-700">
+                <ShieldCheck size={16} /> Service profile healthy
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </>
+  );
 }
