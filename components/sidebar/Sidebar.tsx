@@ -1,11 +1,54 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Car, LayoutDashboard, CalendarDays, FileText, Users, BarChart3, CreditCard, Building2, LogOut, ChevronRight, ChevronsLeft, ChevronsRight, Settings, type LucideIcon } from "lucide-react";
+import {
+  Car,
+  LayoutDashboard,
+  CalendarDays,
+  FileText,
+  Users,
+  BarChart3,
+  CreditCard,
+  Building2,
+  LogOut,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Settings,
+  type LucideIcon,
+} from "lucide-react";
 import { clearSession, roleLabels, type Role } from "../../lib/auth";
 import { useSidebar } from "../layout/SidebarContext";
 
-const menus:Record<Role,Array<[string,string,LucideIcon]>>={customer:[["Dashboard","/customer/dashboard",LayoutDashboard],["Vehicles","/customer/vehicles",Car],["Bookings","/customer/bookings",CalendarDays],["Tracking","/customer/tracking",Car],["Invoices","/customer/invoices",FileText],["Profile","/customer/profile",Users]],manager:[["Dashboard","/manager/dashboard",LayoutDashboard],["Bookings","/manager/bookings",CalendarDays],["Job Cards","/manager/job-cards",FileText],["Invoices","/manager/invoices",CreditCard],["Team","/manager/team",Users]],owner:[["Dashboard","/owner/dashboard",LayoutDashboard],["Reports","/owner/reports",BarChart3],["Subscription","/owner/subscription",CreditCard]],admin:[["Dashboard","/admin/dashboard",LayoutDashboard],["Tenants","/admin/tenants",Building2],["Users","/admin/users",Users],["Revenue","/admin/revenue",BarChart3]]};
+const menus: Record<Role, Array<[string, string, LucideIcon]>> = {
+  customer: [
+    ["Dashboard", "/customer/dashboard", LayoutDashboard],
+    ["Service Centers", "/customer/serviceCenters", Building2],
+    ["Bookings", "/customer/bookings", CalendarDays],
+    ["Tracking", "/customer/tracking", Car],
+    ["Vehicles", "/customer/vehicles", Car],
+    ["Invoices", "/customer/invoices", FileText],
+    ["Profile", "/customer/profile", Users],
+  ],
+  manager: [
+    ["Dashboard", "/manager/dashboard", LayoutDashboard],
+    ["Bookings", "/manager/bookings", CalendarDays],
+    ["Job Cards", "/manager/job-cards", FileText],
+    ["Invoices", "/manager/invoices", CreditCard],
+    ["Team", "/manager/team", Users],
+  ],
+  owner: [
+    ["Dashboard", "/owner/dashboard", LayoutDashboard],
+    ["Reports", "/owner/reports", BarChart3],
+    ["Subscription", "/owner/subscription", CreditCard],
+  ],
+  admin: [
+    ["Dashboard", "/admin/dashboard", LayoutDashboard],
+    ["Tenants", "/admin/tenants", Building2],
+    ["Users", "/admin/users", Users],
+    ["Revenue", "/admin/revenue", BarChart3],
+  ],
+};
 
 export default function Sidebar({ role }: { role: Role }) {
   const { desktopOpen, mobileOpen, closeMobile, toggleDesktop } = useSidebar();
@@ -21,9 +64,12 @@ export default function Sidebar({ role }: { role: Role }) {
     <>
       {/* Mobile: tap outside to close the drawer */}
       {mobileOpen && (
-        <div onClick={closeMobile} className="fixed inset-0 z-30 bg-slate-950/30 md:hidden" aria-hidden />
+        <div
+          onClick={closeMobile}
+          className="fixed inset-0 z-30 bg-slate-950/30 md:hidden"
+          aria-hidden
+        />
       )}
-
 
       {/* Desktop: arrow on the sidebar edge. It stays on screen when the sidebar is closed. */}
       <button
@@ -54,10 +100,13 @@ export default function Sidebar({ role }: { role: Role }) {
         </div>
 
         <div className="mb-5 rounded-2xl bg-slate-950 p-4 text-white">
-          <p className="text-[10px] font-black uppercase tracking-[.18em] text-orange-300">Workspace</p>
+          <p className="text-[10px] font-black uppercase tracking-[.18em] text-orange-300">
+            Workspace
+          </p>
           <p className="mt-1 font-bold">{roleLabels[role]}</p>
           <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
-            <span className="size-2 rounded-full bg-emerald-400" /> System operational
+            <span className="size-2 rounded-full bg-emerald-400" /> System
+            operational
           </div>
         </div>
 
@@ -70,7 +119,9 @@ export default function Sidebar({ role }: { role: Role }) {
                 href={url}
                 onClick={closeMobile}
                 className={`sidebar-link flex items-center justify-between rounded-xl px-3 py-3 text-sm font-bold ${
-                  active ? "active bg-orange-50 text-orange-600" : "text-slate-600 hover:bg-slate-50"
+                  active
+                    ? "active bg-orange-50 text-orange-600"
+                    : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 <span className="flex items-center gap-3">
@@ -88,7 +139,10 @@ export default function Sidebar({ role }: { role: Role }) {
             <Settings size={18} />
             Preferences
           </button>
-          <button onClick={logout} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-rose-600 hover:bg-rose-50">
+          <button
+            onClick={logout}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold text-rose-600 hover:bg-rose-50"
+          >
             <LogOut size={18} />
             Logout
           </button>
