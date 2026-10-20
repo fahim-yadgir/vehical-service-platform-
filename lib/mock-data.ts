@@ -6,8 +6,9 @@ export const vehicles = [
     registration: "MH12AB1234",
     type: "Car",
     year: 2023,
-    health: 86,
     lastService: "18 Sep 2026",
+    chassisNo: "MA3EYA3S100123456",
+    engineNo: "L15B7-9876543",
   },
   {
     id: "V002",
@@ -16,10 +17,12 @@ export const vehicles = [
     registration: "MH12XY9876",
     type: "Scooter",
     year: 2022,
-    health: 72,
     lastService: "04 Aug 2026",
+    chassisNo: "MD623456789012345",
+    engineNo: "RT-FI-5432109",
   },
 ];
+
 export const bookings = [
   {
     id: "BK1001",
@@ -42,6 +45,7 @@ export const bookings = [
     progress: 100,
   },
 ];
+
 export const centres = [
   {
     name: "AutoCare Pune",

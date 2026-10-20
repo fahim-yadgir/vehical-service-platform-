@@ -29,7 +29,7 @@ export default function Topbar({
             </>
           )}
 
-          <div className={`min-w-0 transition-[padding] duration-300 ease-in-out ${available && !desktopOpen ? "md:pl-9" : ""}`}>
+          <div className={`min-w-0 transition-[padding] duration-300 ease-in-out ${available && !desktopOpen ? "md:pl-10" : "md:pl-6"}`}>
             <h1 className="page-title">{title}</h1>
             {subtitle && <p className="muted mt-1 text-sm">{subtitle}</p>}
           </div>
