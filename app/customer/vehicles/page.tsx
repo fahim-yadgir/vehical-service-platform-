@@ -3,12 +3,12 @@ import { useState } from "react";
 import Topbar from "../../../components/navbar/Topbar";
 import Button from "../../../components/ui/Button";
 import SectionHeading from "../../../components/ui/SectionHeading";
-import { vehicles as initial } from "../../../lib/mock-data";
-import { Car, Bike, Plus, History, X } from "lucide-react";
+import { useVehicles } from "../../../lib/customerVehicles";
+import { Car, Bike, Plus, History, X, Store } from "lucide-react";
 import Link from "next/link";
 
 export default function VehiclesPage() {
-  const [items, setItems] = useState(initial);
+  const { vehicles: items, setVehicles } = useVehicles();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -37,7 +37,7 @@ export default function VehiclesPage() {
     }
 
     const newVehicle = {
-      id: `V00${items.length + 1}`,
+      id: `V${Date.now()}`,
       brand: formData.brand,
       model: formData.model,
       type: formData.type,
@@ -48,7 +48,7 @@ export default function VehiclesPage() {
       engineNo: formData.engineNo || "N/A",
     };
 
-    setItems([...items, newVehicle]);
+    setVehicles([...items, newVehicle]);
     setIsModalOpen(false);
     setFormData({ brand: "", model: "", type: "Car", chassisNo: "", engineNo: "", year: "" });
   };
@@ -119,6 +119,12 @@ export default function VehiclesPage() {
                   className="flex items-center gap-2 text-xs font-bold text-orange-600 hover:text-orange-700 transition"
                 >
                   <History size={16} /> View Service History
+                </Link>
+                <Link
+                  href="/customer/serviceCenters"
+                  className="flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-orange-600 transition"
+                >
+                  <Store size={16} /> Find service center
                 </Link>
               </div>
             </article>

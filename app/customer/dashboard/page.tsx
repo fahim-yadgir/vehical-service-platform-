@@ -1,11 +1,17 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Topbar from "../../../components/navbar/Topbar";
 import KpiCard from "../../../components/cards/KpiCard";
 import Badge from "../../../components/ui/Badge";
 import SectionHeading from "../../../components/ui/SectionHeading";
-import { bookings, centres, vehicles } from "../../../lib/mock-data";
+import { bookings } from "../../../lib/mock-data";
+import { bookingsForVehicle, useVehicles, vehicleName } from "../../../lib/customerVehicles";
+import { serviceCenters } from "../../../lib/serviceCenters";
+import { distanceKm, formatKm } from "../../../lib/geo";
+import { defaultProfile, loadProfile } from "../../../lib/customerProfile";
+import { DEFAULT_LOCATION, loadLocation } from "../../../lib/customerLocation";
 
 import {
   Clock,
@@ -24,10 +30,45 @@ import {
   Truck,
   Tag,
   ChevronRight,
+  Bike,
+  Plus,
 } from "lucide-react";
 
 export default function DashboardPage() {
-  const b = bookings[0];
+  const { vehicles } = useVehicles();
+  const [location, setLocation] = useState(DEFAULT_LOCATION);
+  const [firstName, setFirstName] = useState(defaultProfile.fullName.split(" ")[0]);
+  useEffect(() => {
+    setFirstName(loadProfile().fullName.trim().split(" ")[0]);
+    const saved = loadLocation();
+    if (saved) setLocation(saved);
+  }, []);
+
+  // Same data as the Service Centers pages, sorted by distance from the saved location.
+  const centers = useMemo(
+    () =>
+      serviceCenters
+        .map((c) => ({ ...c, km: distanceKm(location, c.location) }))
+        .sort((a, z) => a.km - z.km),
+    [location]
+  );
+  const nearby = centers.slice(0, 4);
+  const topRated = [...centers].sort((a, z) => z.rating - a.rating).slice(0, 3);
+  const nearbyCount = centers.filter((c) => c.km <= 10).length;
+
+  // Primary vehicle = first in "My Vehicles". Its active booking drives the hero + current service.
+  const vehicle = vehicles[0];
+  const VehicleIcon = vehicle && /bike|scooter/i.test(vehicle.type) ? Bike : Car;
+  const vehicleBookings = bookingsForVehicle(vehicle);
+  const completedCount = vehicles.reduce(
+    (n, v) => n + bookingsForVehicle(v).filter((x) => x.status === "completed").length,
+    0
+  );
+  const b = vehicleBookings.find((x) => x.status !== "completed");
+  const bCenter = b && serviceCenters.find((c) => c.name === b.centre);
+  const historyHref = vehicle ? `/customer/vehicles/${vehicle.id}/history` : "/customer/vehicles";
+  const findCenters = (service?: string) =>
+    service ? `/customer/serviceCenters?service=${encodeURIComponent(service)}` : "/customer/serviceCenters";
 
   const offers = [
     {
@@ -35,18 +76,21 @@ export default function DashboardPage() {
       subtitle: "Oil Change Service",
       description: "Keep your engine running smoothly.",
       code: "OIL20",
+      service: "Oil Change",
     },
     {
       title: "15% OFF",
       subtitle: "AC Service",
       description: "Beat the heat with a complete AC check.",
       code: "AC15",
+      service: "AC Repair",
     },
     {
       title: "₹499",
       subtitle: "Premium Car Wash",
       description: "Exterior wash with interior cleaning.",
       code: "WASH499",
+      service: "Car Wash",
     },
   ];
 
@@ -77,39 +121,9 @@ export default function DashboardPage() {
       description: "Battery check",
     },
     {
-      name: "General Service",
+      name: "Full Service",
       icon: Car,
-      description: "Full vehicle care",
-    },
-  ];
-
-  const workshops = [
-    {
-      name: "AutoCare Premium Garage",
-      rating: "4.8",
-      reviews: "326",
-      distance: "1.8 km",
-      specialty: "Engine · AC · Brakes",
-      price: "From ₹799",
-      verified: true,
-    },
-    {
-      name: "CityDrive Motors",
-      rating: "4.7",
-      reviews: "214",
-      distance: "2.4 km",
-      specialty: "General Service · AC",
-      price: "From ₹699",
-      verified: true,
-    },
-    {
-      name: "ProFix Auto Centre",
-      rating: "4.6",
-      reviews: "189",
-      distance: "3.1 km",
-      specialty: "Brakes · Tyres · Battery",
-      price: "From ₹599",
-      verified: true,
+      description: "Complete vehicle care",
     },
   ];
 
@@ -125,7 +139,7 @@ export default function DashboardPage() {
         <section className="card mesh fade-up overflow-hidden p-6 sm:p-8">
           <div className="grid gap-8 lg:grid-cols-[1fr_360px] lg:items-center">
             <div>
-              <Badge tone="yellow">Welcome back</Badge>
+              <Badge tone="yellow">Welcome back, {firstName}</Badge>
 
               <h2 className="mt-3 max-w-2xl text-3xl font-black tracking-tight sm:text-4xl">
                 Everything your vehicle needs, in one place.
@@ -137,73 +151,73 @@ export default function DashboardPage() {
               </p>
 
               <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href="/customer/bookings/new"
-                  className="btn btn-primary"
-                >
+                <Link href={findCenters()} className="btn btn-primary">
                   <Wrench size={17} />
                   Book a Service
                 </Link>
 
-                <Link
-                  href="/customer/tracking"
-                  className="btn btn-secondary"
-                >
-                  <Navigation size={17} />
-                  Track Service
+                <Link href="/customer/vehicles" className="btn btn-secondary">
+                  <Car size={17} />
+                  My Vehicles
                 </Link>
               </div>
             </div>
 
             <div className="rounded-3xl bg-slate-950 p-5 text-white shadow-xl">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">
-                  Current vehicle
-                </span>
-
-                <span className="rounded-full bg-orange-500/15 px-3 py-1 text-xs font-bold text-orange-300">
-                  Active
-                </span>
+                <span className="text-sm text-slate-400">Current vehicle</span>
+                {vehicles.length > 1 && (
+                  <Link href="/customer/vehicles" className="text-xs font-bold text-orange-300 hover:text-orange-200">
+                    +{vehicles.length - 1} more
+                  </Link>
+                )}
               </div>
 
-              <div className="mt-5 flex items-center gap-4">
-                <div className="grid size-14 place-items-center rounded-2xl bg-white/10">
-                  <Car size={28} className="text-orange-400" />
+              {vehicle ? (
+                <>
+                  <Link href="/customer/vehicles" className="mt-5 flex items-center gap-4">
+                    <div className="grid size-14 place-items-center rounded-2xl bg-white/10">
+                      <VehicleIcon size={28} className="text-orange-400" />
+                    </div>
+                    <div>
+                      <p className="text-xl font-black">{vehicleName(vehicle)}</p>
+                      <p className="font-mono text-sm text-slate-400">{vehicle.registration}</p>
+                    </div>
+                  </Link>
+
+                  <div className="mt-5 rounded-2xl bg-white/5 p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-400">Service status</span>
+                      {b && <span className="pulse-dot size-3 rounded-full bg-orange-400" />}
+                    </div>
+
+                    {b ? (
+                      <>
+                        <p className="mt-2 font-black capitalize">{b.status.replaceAll("_", " ")}</p>
+                        <div className="mt-4 progress-track bg-white/10">
+                          <div className="progress-fill" style={{ width: `${b.progress}%` }} />
+                        </div>
+                        <div className="mt-2 flex justify-between text-xs text-slate-400">
+                          <span>{b.progress}% complete</span>
+                          <span>{b.centre}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="mt-2 font-black">No active service</p>
+                        <p className="mt-1 text-xs text-slate-400">Last service: {vehicle.lastService}</p>
+                      </>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="mt-5 rounded-2xl bg-white/5 p-5 text-center">
+                  <p className="font-black">No vehicle added yet</p>
+                  <Link href="/customer/vehicles" className="btn btn-primary mt-4">
+                    <Plus size={16} /> Add vehicle
+                  </Link>
                 </div>
-
-                <div>
-                  <p className="text-xl font-black">
-                    Honda City
-                  </p>
-
-                  <p className="text-sm text-slate-400">
-                    Your primary vehicle
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-5 rounded-2xl bg-white/5 p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-400">
-                    Service status
-                  </span>
-
-                  <span className="pulse-dot size-3 rounded-full bg-orange-400" />
-                </div>
-
-                <p className="mt-2 font-black">
-                  Repair in progress
-                </p>
-
-                <div className="mt-4 progress-track bg-white/10">
-                  <div className="progress-fill w-[68%]" />
-                </div>
-
-                <div className="mt-2 flex justify-between text-xs text-slate-400">
-                  <span>68% complete</span>
-                  <span>ETA 18 min</span>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </section>
@@ -219,20 +233,20 @@ export default function DashboardPage() {
           <KpiCard
             icon="clock"
             label="Active booking"
-            value="1"
-            change="On track"
+            value={b ? "1" : "0"}
+            change={b ? "On track" : undefined}
           />
 
           <KpiCard
             icon="map"
-            label="Nearby centres"
-            value={centres.length}
+            label="Centres within 10 km"
+            value={nearbyCount}
           />
 
           <KpiCard
-            icon="wallet"
-            label="Pending payment"
-            value="₹4,800"
+            icon="check"
+            label="Services completed"
+            value={completedCount}
           />
         </div>
 
@@ -243,10 +257,7 @@ export default function DashboardPage() {
             title="Latest offers & discounts"
             description="Save more on your next vehicle service"
             action={
-              <Link
-                href="/customer/bookings/new"
-                className="btn btn-secondary"
-              >
+              <Link href={findCenters()} className="btn btn-secondary">
                 View all <ArrowRight size={15} />
               </Link>
             }
@@ -284,7 +295,7 @@ export default function DashboardPage() {
                   </p>
 
                   <Link
-                    href="/customer/bookings/new"
+                    href={findCenters(offer.service)}
                     className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-white transition group-hover:text-orange-400"
                   >
                     Use offer
@@ -311,7 +322,7 @@ export default function DashboardPage() {
               return (
                 <Link
                   key={service.name}
-                  href="/customer/bookings/new"
+                  href={findCenters(service.name)}
                   className="group rounded-2xl border border-slate-100 p-4 text-center transition hover:-translate-y-1 hover:border-orange-100 hover:bg-orange-50/50 hover:shadow-md"
                 >
                   <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-orange-50 text-orange-500 transition group-hover:bg-orange-500 group-hover:text-white">
@@ -338,19 +349,16 @@ export default function DashboardPage() {
             title="Top-rated workshops"
             description="Trusted garages selected for quality and service"
             action={
-              <Link
-                href="/customer/bookings"
-                className="btn btn-secondary"
-              >
+              <Link href="/customer/serviceCenters" className="btn btn-secondary">
                 Explore garages <ArrowRight size={15} />
               </Link>
             }
           />
 
           <div className="grid gap-4 lg:grid-cols-3">
-            {workshops.map((workshop) => (
+            {topRated.map((c) => (
               <div
-                key={workshop.name}
+                key={c.id}
                 className="rounded-3xl border border-slate-100 p-5 transition hover:-translate-y-1 hover:shadow-lg"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -358,47 +366,32 @@ export default function DashboardPage() {
                     <Wrench size={22} />
                   </div>
 
-                  {workshop.verified && (
+                  {c.category === "Authorized Brand Center" && (
                     <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-600">
                       <BadgeCheck size={13} />
-                      Verified
+                      Authorized
                     </span>
                   )}
                 </div>
 
-                <h3 className="mt-4 font-black">
-                  {workshop.name}
-                </h3>
+                <h3 className="mt-4 font-black">{c.name}</h3>
 
                 <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
                   <span className="flex items-center gap-1 font-bold text-amber-500">
                     <Star size={15} fill="currentColor" />
-                    {workshop.rating}
+                    {c.rating.toFixed(1)}
                   </span>
-
-                  <span className="muted">
-                    ({workshop.reviews} reviews)
-                  </span>
-
-                  <span className="muted">
-                    · {workshop.distance}
-                  </span>
+                  <span className="muted">({c.reviewCount} reviews)</span>
+                  <span className="muted">· {formatKm(c.km)}</span>
                 </div>
 
-                <p className="mt-4 text-sm text-slate-500">
-                  {workshop.specialty}
-                </p>
+                <p className="mt-4 text-sm text-slate-500">{c.services.slice(0, 3).join(" · ")}</p>
 
                 <div className="mt-5 flex items-center justify-between">
-                  <span className="text-sm font-black">
-                    {workshop.price}
-                  </span>
+                  <span className="text-sm font-black">{c.area}</span>
 
-                  <Link
-                    href="/customer/bookings/new"
-                    className="btn btn-primary"
-                  >
-                    Book now
+                  <Link href={`/customer/serviceCenters/${c.id}`} className="btn btn-primary">
+                    View &amp; book
                   </Link>
                 </div>
               </div>
@@ -409,59 +402,57 @@ export default function DashboardPage() {
         {/* CURRENT SERVICE + NEARBY */}
         <div className="grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
           <section className="card fade-up-2 p-6">
-            <SectionHeading
-              eyebrow="Current service"
-              title={b.id + " · " + b.vehicle}
-              description={b.service + " at " + b.centre}
-              action={
-                <Link
-                  href="/customer/tracking"
-                  className="btn btn-secondary"
-                >
-                  Track <Navigation size={15} />
-                </Link>
-              }
-            />
+            {b ? (
+              <>
+                <SectionHeading
+                  eyebrow="Current service"
+                  title={b.id + " · " + b.vehicle}
+                  description={b.service + " at " + b.centre}
+                  action={
+                    bCenter && (
+                      <Link href={`/customer/serviceCenters/${bCenter.id}`} className="btn btn-secondary">
+                        View centre <Navigation size={15} />
+                      </Link>
+                    )
+                  }
+                />
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-xs font-bold text-slate-400">
-                  Progress
-                </p>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs font-bold text-slate-400">Progress</p>
+                    <p className="mt-2 text-xl font-black">{b.progress}%</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs font-bold text-slate-400">Booked on</p>
+                    <p className="mt-2 text-xl font-black">{b.date}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs font-bold text-slate-400">Estimate</p>
+                    <p className="mt-2 text-xl font-black">{b.amount}</p>
+                  </div>
+                </div>
 
-                <p className="mt-2 text-xl font-black">
-                  68%
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-xs font-bold text-slate-400">
-                  Driver ETA
-                </p>
-
-                <p className="mt-2 text-xl font-black">
-                  18 min
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-xs font-bold text-slate-400">
-                  Estimate
-                </p>
-
-                <p className="mt-2 text-xl font-black">
-                  {b.amount}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center gap-3 text-sm text-slate-600">
-              <span className="grid size-9 place-items-center rounded-xl bg-orange-50 text-orange-500">
-                <Clock size={17} />
-              </span>
-
-              Inspection complete · Repair underway · Quality check next
-            </div>
+                <div className="mt-6 flex items-center gap-3 text-sm text-slate-600">
+                  <span className="grid size-9 place-items-center rounded-xl bg-orange-50 text-orange-500">
+                    <Clock size={17} />
+                  </span>
+                  Inspection complete · Repair underway · Quality check next
+                </div>
+              </>
+            ) : (
+              <>
+                <SectionHeading
+                  eyebrow="Current service"
+                  title="No active service"
+                  description="Pick a service center near you to book your next service"
+                  action={
+                    <Link href="/customer/serviceCenters" className="btn btn-primary">
+                      Find service center
+                    </Link>
+                  }
+                />
+              </>
+            )}
           </section>
 
           <section className="card fade-up-3 p-6">
@@ -471,32 +462,35 @@ export default function DashboardPage() {
               description="Fast options around your location"
             />
 
-            {centres.map((c) => (
-              <div
-                key={c.name}
-                className="flex items-center justify-between border-b border-slate-100 py-4 last:border-0"
+            {nearby.map((c) => (
+              <Link
+                key={c.id}
+                href={`/customer/serviceCenters/${c.id}`}
+                className="flex items-center justify-between gap-3 border-b border-slate-100 py-4 last:border-0 hover:opacity-80"
               >
                 <div className="flex items-center gap-3">
-                  <div className="grid size-10 place-items-center rounded-xl bg-orange-50 text-orange-500">
+                  <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-500">
                     <MapPin size={17} />
                   </div>
 
                   <div>
-                    <p className="font-bold">
-                      {c.name}
-                    </p>
-
+                    <p className="font-bold">{c.name}</p>
                     <p className="muted text-xs">
-                      {c.address} · {c.distance}
+                      {c.area} · {formatKm(c.km)}
                     </p>
                   </div>
                 </div>
 
-                <span className="text-xs font-bold text-emerald-600">
-                  {c.slots}
+                <span className="flex items-center gap-1 text-xs font-bold text-amber-500">
+                  <Star size={13} fill="currentColor" />
+                  {c.rating.toFixed(1)}
                 </span>
-              </div>
+              </Link>
             ))}
+
+            <Link href="/customer/serviceCenters" className="btn btn-secondary mt-4 w-full">
+              See all service centers <ArrowRight size={15} />
+            </Link>
           </section>
         </div>
 
@@ -507,7 +501,7 @@ export default function DashboardPage() {
               <Badge tone="yellow">Recommended for you</Badge>
 
               <h2 className="mt-3 text-2xl font-black">
-                Your Honda City may be due for an oil change.
+                {vehicle ? `Your ${vehicleName(vehicle)} may be due for an oil change.` : "Keep your vehicle healthy with regular service."}
               </h2>
 
               <p className="muted mt-2 max-w-2xl">
@@ -516,10 +510,7 @@ export default function DashboardPage() {
                 with a trusted nearby garage.
               </p>
 
-              <Link
-                href="/customer/bookings/new"
-                className="btn btn-primary mt-5"
-              >
+              <Link href={findCenters("Oil Change")} className="btn btn-primary mt-5">
                 Book oil change
                 <ArrowRight size={16} />
               </Link>
@@ -536,11 +527,8 @@ export default function DashboardPage() {
           <SectionHeading
             title="Recent activity"
             action={
-              <Link
-                href="/customer/bookings"
-                className="btn btn-secondary"
-              >
-                View all <ArrowRight size={15} />
+              <Link href={historyHref} className="btn btn-secondary">
+                Service history <ArrowRight size={15} />
               </Link>
             }
           />

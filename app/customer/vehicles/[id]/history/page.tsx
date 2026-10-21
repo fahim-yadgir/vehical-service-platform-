@@ -2,8 +2,9 @@
 import { useParams } from "next/navigation";
 import Topbar from "../../../../../components/navbar/Topbar";
 import SectionHeading from "../../../../../components/ui/SectionHeading";
-import { vehicles, bookings } from "../../../../../lib/mock-data";
-import { Wrench, Calendar, MapPin, ArrowLeft, CheckCircle2, Clock } from "lucide-react";
+import { bookingsForVehicle, useVehicles } from "../../../../../lib/customerVehicles";
+import { serviceCenters } from "../../../../../lib/serviceCenters";
+import { Wrench, Calendar, MapPin, ArrowLeft, CheckCircle2, Clock, Store } from "lucide-react";
 import Link from "next/link";
 
 export default function ServiceHistoryPage() {
@@ -11,12 +12,11 @@ export default function ServiceHistoryPage() {
   const vehicleId = params.id;
 
   // 1. Find the vehicle using the ID from the URL
+  const { vehicles, ready } = useVehicles();
   const vehicle = vehicles.find((v) => v.id === vehicleId);
 
   // 2. Filter bookings related to this vehicle
-  const vehicleBookings = bookings.filter((b) => 
-    vehicle ? b.vehicle.toLowerCase().includes(vehicle.model.toLowerCase()) : false
-  );
+  const vehicleBookings = bookingsForVehicle(vehicle);
 
   return (
     <>
@@ -61,7 +61,11 @@ export default function ServiceHistoryPage() {
                         </div>
                         <div className="mt-1.5 flex flex-wrap items-center gap-4 text-xs text-slate-500 font-medium">
                           <span className="flex items-center gap-1">
-                            <MapPin size={14} className="text-slate-400" /> {b.centre}
+                            <MapPin size={14} className="text-slate-400" />
+                            {(() => {
+                              const c = serviceCenters.find((x) => x.name === b.centre);
+                              return c ? <Link href={`/customer/serviceCenters/${c.id}`} className="hover:text-orange-600 hover:underline">{b.centre}</Link> : b.centre;
+                            })()}
                           </span>
                           <span className="flex items-center gap-1">
                             <Calendar size={14} className="text-slate-400" /> {b.date}
@@ -92,15 +96,18 @@ export default function ServiceHistoryPage() {
                 <Wrench size={40} className="mx-auto text-slate-300 mb-3" />
                 <h3 className="text-base font-bold text-slate-700">No Service History Found</h3>
                 <p className="text-sm text-slate-500 mt-1">This vehicle hasn't undergone any logged services yet.</p>
+                <Link href="/customer/serviceCenters" className="btn btn-primary mt-5">
+                  <Store size={16} /> Find a service center
+                </Link>
               </div>
             )}
           </>
-        ) : (
+        ) : ready ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-slate-200">
             <h3 className="text-lg font-bold text-slate-700">Vehicle not found</h3>
             <p className="text-sm text-slate-500 mt-1">The vehicle ID in the URL does not exist.</p>
           </div>
-        )}
+        ) : null}
       </div>
     </>
   );

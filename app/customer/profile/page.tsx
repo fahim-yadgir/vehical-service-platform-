@@ -1,25 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import Topbar from "../../../components/navbar/Topbar";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
-import { CheckCircle2, UserRound, ShieldCheck, Edit3, X } from "lucide-react";
+import LocationPicker, { type PickedLocation } from "../../../components/map/LocationPicker";
+import { DEFAULT_LOCATION, loadLocation, saveLocation } from "../../../lib/customerLocation";
+import { useVehicles } from "../../../lib/customerVehicles";
+import { defaultProfile, loadProfile, saveProfile } from "../../../lib/customerProfile";
+import { CheckCircle2, UserRound, ShieldCheck, Edit3, X, MapPin, Car, ChevronRight } from "lucide-react";
+
 
 export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [saved, setSaved] = useState(false);
   
-  // User profile state
-  const [profileData, setProfileData] = useState({
-    fullName: "Fahim Yadgir",
-    mobile: "9876543210",
-    email: "fahim@example.com",
-    age: "26",
-    gender: "Male",
-    city: "Pune",
-    address: "Flat 402, Sunrise Apartments, Viman Nagar, Pune",
-  });
+  const { vehicles } = useVehicles();
+  const [profileData, setProfileData] = useState(defaultProfile);
+  const [backup, setBackup] = useState(defaultProfile);
+  // Map location is the same one Dashboard and Service Centers use for "nearby".
+  const [location, setLocation] = useState<PickedLocation | null>(DEFAULT_LOCATION);
+  const [locBackup, setLocBackup] = useState<PickedLocation | null>(DEFAULT_LOCATION);
+
+  useEffect(() => {
+    const p = loadProfile();
+    setProfileData(p);
+    setBackup(p);
+    const loc = loadLocation();
+    if (loc) {
+      setLocation(loc);
+      setLocBackup(loc);
+    }
+  }, []);
+
+  const startEdit = () => {
+    setBackup(profileData);
+    setLocBackup(location);
+    setIsEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setProfileData(backup);
+    setLocation(locBackup);
+    setIsEditing(false);
+  };
 
   const handleChange = (field: string, value: string) => {
     setProfileData({ ...profileData, [field]: value });
@@ -28,6 +53,11 @@ export default function Profile() {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     // Future me yahan API/Database call aayegi check karne ke liye ki mobile/email already used hai ya nahi
+    if (location?.address === "Finding address...") return;
+    saveProfile(profileData);
+    if (location) saveLocation(location);
+    setBackup(profileData);
+    setLocBackup(location);
     setIsEditing(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -57,7 +87,7 @@ export default function Profile() {
             {!isEditing ? (
               <button
                 type="button"
-                onClick={() => setIsEditing(true)}
+                onClick={startEdit}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
               >
                 <Edit3 size={15} /> Edit Profile
@@ -65,7 +95,7 @@ export default function Profile() {
             ) : (
               <button
                 type="button"
-                onClick={() => setIsEditing(false)}
+                onClick={cancelEdit}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 transition"
               >
                 <X size={15} /> Cancel
@@ -130,27 +160,35 @@ export default function Profile() {
                     <option value="Other">Other</option>
                   </select>
                 </label>
-                <Input
-                  label="City"
-                  value={profileData.city}
-                  onChange={(e) => handleChange("city", e.target.value)}
-                  disabled={!isEditing}
-                />
               </div>
             </div>
 
             {/* Address Details Section */}
             <div className="pt-4 border-t border-slate-100">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-4">
-                Saved Address & Location
+                Address
               </h3>
               <div>
                 <Input
-                  label="House / Flat / Building & Street"
+                  label="Flat / House / Building no."
                   value={profileData.address}
+                  placeholder="e.g. Flat 402, Sunrise Apartments"
                   onChange={(e) => handleChange("address", e.target.value)}
                   disabled={!isEditing}
                 />
+              </div>
+
+              <div className="mt-5">
+                <p className="mb-2 text-sm font-bold text-slate-700">Map location</p>
+                {isEditing ? (
+                  <LocationPicker value={location} onChange={setLocation} height={260} />
+                ) : (
+                  <p className="flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
+                    <MapPin size={16} className="mt-0.5 shrink-0 text-orange-500" />
+                    {location?.address ?? "No location set"}
+                  </p>
+                )}
+                <p className="mt-2 text-xs text-slate-400">Used to show service centers near you on Dashboard and Service Centers.</p>
               </div>
             </div>
 
@@ -177,6 +215,24 @@ export default function Profile() {
 
           </form>
         </div>
+
+        <Link
+          href="/customer/vehicles"
+          className="card mx-auto mt-5 flex max-w-3xl items-center justify-between rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+        >
+          <span className="flex items-center gap-3">
+            <span className="grid size-11 place-items-center rounded-xl bg-orange-50 text-orange-500">
+              <Car size={20} />
+            </span>
+            <span>
+              <span className="block font-black text-slate-900">My Garage</span>
+              <span className="block text-xs text-slate-500">
+                {vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"} · manage and view service history
+              </span>
+            </span>
+          </span>
+          <ChevronRight size={18} className="text-slate-400" />
+        </Link>
       </div>
     </>
   );

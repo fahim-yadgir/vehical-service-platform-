@@ -9,7 +9,7 @@ import BottomSheet from "../../../components/ui/BottomSheet";
 import LocationPicker, { type PickedLocation } from "../../../components/map/LocationPicker";
 import ServiceCenterCard, { type CenterWithDistance } from "../../../components/customer/ServiceCenterCard";
 import { ActiveFilterChips, FilterFields, countActive, defaultFilters, type Filters } from "../../../components/customer/ServiceCenterFilters";
-import { categories, serviceCenters, type CenterCategory } from "../../../lib/serviceCenters";
+import { categories, serviceCenters, serviceOptions, type CenterCategory } from "../../../lib/serviceCenters";
 import { distanceKm, formatKm } from "../../../lib/geo";
 import { DEFAULT_LOCATION, loadLocation, saveLocation } from "../../../lib/customerLocation";
 
@@ -37,6 +37,12 @@ export default function ServiceCentersPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [view, setView] = useState<"list" | "map">("list");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Dashboard shortcuts open this page as /customer/serviceCenters?service=Oil Change
+  useEffect(() => {
+    const service = new URLSearchParams(window.location.search).get("service");
+    if (service && serviceOptions.includes(service)) setFilters((f) => ({ ...f, service }));
+  }, []);
 
   // Remember the last chosen location on this device.
   useEffect(() => {
