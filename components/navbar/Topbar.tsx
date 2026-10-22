@@ -1,6 +1,7 @@
 "use client";
-import { Bell, Menu, Search, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useSidebar } from "../layout/SidebarContext";
+import UserMenu from "./UserMenu";
 
 export default function Topbar({
   title,
@@ -35,19 +36,7 @@ export default function Topbar({
           </div>
         </div>
 
-        <div className="hidden items-center gap-2 sm:flex">
-          <div className="hidden items-center gap-2 rounded-xl border bg-white px-3 py-2 text-slate-400 lg:flex">
-            <Search size={16} />
-            <span className="text-sm">Search workspace</span>
-          </div>
-          <button className="relative rounded-xl border bg-white p-2.5 text-slate-600 transition hover:-translate-y-0.5">
-            <Bell size={18} />
-            <span className="pulse-dot absolute right-1 top-1 size-2 rounded-full bg-orange-500" />
-          </button>
-          <div className="grid size-10 place-items-center rounded-xl bg-slate-950 text-sm font-black text-white">
-            AY
-          </div>
-        </div>
+        <UserMenu />
       </div>
     </header>
   );

@@ -6,8 +6,8 @@ import { ArrowRight } from "lucide-react";
 import Topbar from "../../../../components/navbar/Topbar";
 import KpiCard from "../../../../components/cards/KpiCard";
 import Badge from "../../../../components/ui/Badge";
-import { revenueMonths, store, useAppSelector, type Tenant } from "../../../../lib/redux-store";
-import { revenue } from "../../../../lib/mock-data";
+import { restoreTenants, useAppSelector, type Tenant } from "../../../../lib/redux-store";
+import { buildPayments, formatINR, inRange, presetRange, total, ymd } from "../../../../lib/revenue";
 
 const DAY = 24 * 60 * 60 * 1000;
 const toTime = (date: string) => new Date(`${date}T00:00:00`).getTime();
@@ -19,11 +19,11 @@ const daysLeft = (tenant: Tenant, today: number) => Math.ceil((toTime(tenant.sub
 
 export default function Dashboard() {
   const tenants = useAppSelector((state) => state.tenants);
-  const selectedMonth = useAppSelector((state) => state.selectedRevenueMonth);
 
   // "Today" is read after mount so the server-rendered page and the browser never disagree.
   const [today, setToday] = useState<number | null>(null);
   useEffect(() => {
+    restoreTenants();
     const now = new Date();
     setToday(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime());
   }, []);
@@ -44,41 +44,24 @@ export default function Dashboard() {
 
   const recent = [...tenants].sort((a, b) => toTime(b.createdAt) - toTime(a.createdAt)).slice(0, 5);
 
-  const selectedRevenue = revenue.find(({ month }) => month === selectedMonth);
-  const totalRevenue = selectedRevenue
-    ? `₹${selectedRevenue.value.toFixed(1)}L`
-    : `₹${revenue.reduce((total, item) => total + item.value, 0).toFixed(1)}L`;
+  // Revenue = subscription payments received this month (same data as the Revenue page).
+  const todayKey = today === null ? null : ymd(new Date(today));
+  const monthRevenue = todayKey
+    ? total(inRange(buildPayments(tenants, todayKey), presetRange("thisMonth", todayKey)))
+    : null;
 
   return (
     <>
       <Topbar title="Platform Admin" subtitle="Service centres, subscriptions and revenue at a glance" />
 
       <div className="container space-y-7">
-        <div className="flex items-center justify-end gap-3">
-          <label htmlFor="revenue-month" className="text-sm font-semibold text-slate-600">
-            Revenue month
-          </label>
-          <select
-            id="revenue-month"
-            value={selectedMonth}
-            onChange={(event) => store.dispatch({ type: "revenue/monthSelected", payload: event.target.value })}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800"
-          >
-            {revenueMonths.map((month) => (
-              <option key={month} value={month}>
-                {month === "all" ? "All months" : month}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <div className="grid-auto">
           <KpiCard icon="building" label="Total tenants" value={tenants.length} />
           <KpiCard icon="check" label="Active tenants" value={active} />
           <KpiCard icon="activity" label="Suspended" value={suspended} />
           <KpiCard icon="clock" label="Expiring in 30 days" value={today === null ? "–" : expiringSoon} />
           <KpiCard icon="users" label="Platform users" value={totalUsers.toLocaleString()} />
-          <KpiCard icon="rupee" label="Total revenue" value={totalRevenue} />
+          <KpiCard icon="rupee" label="Revenue this month" value={monthRevenue === null ? "–" : formatINR(monthRevenue)} />
         </div>
 
         <div className="grid gap-6 xl:grid-cols-2">

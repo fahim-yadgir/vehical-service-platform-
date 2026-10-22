@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { revenue, tenants as initialTenants } from "./mock-data";
 
-export type Tenant = (typeof initialTenants)[number];
+export type Tenant = (typeof initialTenants)[number] & { mobile?: string; email?: string };
 
 export type RecentMember = {
   id: string;
@@ -13,51 +13,14 @@ export type RecentMember = {
   status: "Active" | "Inactive";
 };
 
-export type TenantFilter =
-  | "all"
-  | "new"
-  | "old"
-  | "expiring"
-  | "expired"
-  | "active"
-  | "suspended";
+export type TenantFilter = "all" | "new" | "old" | "expiring" | "expired" | "active" | "suspended";
 
 export const recentMembers: RecentMember[] = [
-  {
-    id: "MEM1048",
-    name: "Ananya Deshmukh",
-    tenant: "AutoCare Pune",
-    joined: "14 Oct 2026",
-    status: "Active",
-  },
-  {
-    id: "MEM1047",
-    name: "Kabir Joshi",
-    tenant: "Speed Motors",
-    joined: "12 Oct 2026",
-    status: "Active",
-  },
-  {
-    id: "MEM1046",
-    name: "Meera Kulkarni",
-    tenant: "Prime Auto",
-    joined: "10 Oct 2026",
-    status: "Active",
-  },
-  {
-    id: "MEM1045",
-    name: "Arjun Rao",
-    tenant: "AutoCare Pune",
-    joined: "08 Oct 2026",
-    status: "Inactive",
-  },
-  {
-    id: "MEM1044",
-    name: "Sara Khan",
-    tenant: "Speed Motors",
-    joined: "05 Oct 2026",
-    status: "Active",
-  },
+  { id: "MEM1048", name: "Ananya Deshmukh", tenant: "AutoCare Pune", joined: "14 Oct 2026", status: "Active" },
+  { id: "MEM1047", name: "Kabir Joshi", tenant: "Speed Motors", joined: "12 Oct 2026", status: "Active" },
+  { id: "MEM1046", name: "Meera Kulkarni", tenant: "Prime Auto", joined: "10 Oct 2026", status: "Active" },
+  { id: "MEM1045", name: "Arjun Rao", tenant: "AutoCare Pune", joined: "08 Oct 2026", status: "Inactive" },
+  { id: "MEM1044", name: "Sara Khan", tenant: "Speed Motors", joined: "05 Oct 2026", status: "Active" },
 ];
 
 type AppState = {
@@ -76,8 +39,15 @@ type AppAction =
 
 export const tenantsStorageKey = "vehicle-service-platform.tenants";
 
+const seedContacts: Record<string, { mobile: string; email?: string }> = {
+  TEN001: { mobile: "9822011001", email: "rahul@autocarepune.in" },
+  TEN002: { mobile: "9822011002" },
+  TEN003: { mobile: "9822011003", email: "sameer@primeauto.in" },
+};
+const seededTenants: Tenant[] = initialTenants.map((t) => ({ ...t, ...seedContacts[t.id] }));
+
 const initialState: AppState = {
-  tenants: initialTenants,
+  tenants: seededTenants,
   selectedRevenueMonth: "Oct",
   tenantFilter: "all",
 };
@@ -89,17 +59,9 @@ function reducer(state: AppState, action: AppAction): AppState {
     case "tenants/added":
       return { ...state, tenants: [...state.tenants, action.payload] };
     case "tenants/updated":
-      return {
-        ...state,
-        tenants: state.tenants.map((tenant) =>
-          tenant.id === action.payload.id ? action.payload : tenant,
-        ),
-      };
+      return { ...state, tenants: state.tenants.map((tenant) => tenant.id === action.payload.id ? action.payload : tenant) };
     case "tenants/deleted":
-      return {
-        ...state,
-        tenants: state.tenants.filter((tenant) => tenant.id !== action.payload),
-      };
+      return { ...state, tenants: state.tenants.filter((tenant) => tenant.id !== action.payload) };
     case "tenants/restored":
       return { ...state, tenants: action.payload };
     case "tenants/filterChanged":
@@ -116,18 +78,11 @@ export const store = {
   getState: () => state,
   dispatch: (action: AppAction) => {
     state = reducer(state, action);
-    if (
-      typeof window !== "undefined" &&
-      (action.type === "tenants/added" ||
-        action.type === "tenants/updated" ||
-        action.type === "tenants/deleted")
-    ) {
+    if (typeof window !== "undefined" && (action.type === "tenants/added" || action.type === "tenants/updated" || action.type === "tenants/deleted")) {
       try {
-        window.localStorage.setItem(
-          tenantsStorageKey,
-          JSON.stringify(state.tenants),
-        );
-      } catch {}
+        window.localStorage.setItem(tenantsStorageKey, JSON.stringify(state.tenants));
+      } catch {
+      }
     }
     listeners.forEach((listener) => listener());
   },
@@ -136,6 +91,14 @@ export const store = {
     return () => listeners.delete(listener);
   },
 };
+
+/** Load tenants saved by the Tenants page, so every admin page shows the same data after a refresh. */
+export function restoreTenants() {
+  try {
+    const saved: unknown = JSON.parse(window.localStorage.getItem(tenantsStorageKey) ?? "null");
+    if (Array.isArray(saved)) store.dispatch({ type: "tenants/restored", payload: saved as Tenant[] });
+  } catch {}
+}
 
 export function useAppSelector<Result>(selector: (value: AppState) => Result) {
   return useSyncExternalStore(

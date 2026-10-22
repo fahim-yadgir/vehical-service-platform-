@@ -6,6 +6,11 @@ import Topbar from "../../../../components/navbar/Topbar";
 import DataTable from "../../../../components/tables/DataTable";
 import Badge from "../../../../components/ui/Badge";
 import Button from "../../../../components/ui/Button";
+import AddTenantForm, { type NewTenant } from "../../../../components/admin/AddTenantForm";
+import WhatsAppCredentialsModal from "../../../../components/admin/WhatsAppCredentialsModal";
+import { generateTempPassword } from "../../../../lib/tempPassword";
+import { ymd } from "../../../../lib/revenue";
+import TenantDetailsModal, { subscriptionState } from "../../../../components/admin/TenantDetailsModal";
 import { store, tenantsStorageKey, useAppSelector, type Tenant, type TenantFilter } from "../../../../lib/redux-store";
 
 const filters: { value: TenantFilter; label: string }[] = [
@@ -38,6 +43,11 @@ export default function Tenants() {
 	const [currentPage, setCurrentPage] = useState(1);
 	const [showTenantForm, setShowTenantForm] = useState(false);
 	const [tenantToEdit, setTenantToEdit] = useState<Tenant | null>(null);
+	const [credentials, setCredentials] = useState<{ owner: string; centre: string; mobile: string; password: string } | null>(null);
+	const [viewingId, setViewingId] = useState<string | null>(null);
+	const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
+	// Always read the latest copy, so the modal updates right after Suspend / Activate.
+	const viewing = items.find((tenant) => tenant.id === viewingId) ?? null;
 	const pageSize = 10;
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
@@ -71,24 +81,34 @@ export default function Tenants() {
 			users: Number(formData.get("users")),
 			subscriptionExpiresAt: String(formData.get("subscriptionExpiresAt")),
 		};
-		if (tenantToEdit) {
-			store.dispatch({
-				type: "tenants/updated",
-				payload: { ...tenantToEdit, ...tenantDetails },
-			});
-		} else {
-			const latestId = items.reduce((latest, tenant) => Math.max(latest, Number(tenant.id.replace(/\D/g, "")) || 0), 0);
-			store.dispatch({
-				type: "tenants/added",
-				payload: {
-					id: `TEN${String(latestId + 1).padStart(3, "0")}`,
-					...tenantDetails,
-					createdAt: new Date().toISOString().slice(0, 10),
-				},
-			});
-		}
+		if (!tenantToEdit) return;
+		store.dispatch({ type: "tenants/updated", payload: { ...tenantToEdit, ...tenantDetails } });
 		setShowTenantForm(false);
 		setTenantToEdit(null);
+	}
+
+	/** New tenant: 14-day free trial, one temporary password (shown once) for the owner. */
+	function createTenant(data: NewTenant) {
+		const latestId = items.reduce((latest, tenant) => Math.max(latest, Number(tenant.id.replace(/\D/g, "")) || 0), 0);
+		const now = new Date();
+		const trialEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14);
+		store.dispatch({
+			type: "tenants/added",
+			payload: {
+				id: `TEN${String(latestId + 1).padStart(3, "0")}`,
+				name: data.name,
+				owner: data.owner,
+				mobile: data.mobile,
+				email: data.email || undefined,
+				status: "Active",
+				plan: "Free Trial",
+				users: 1,
+				createdAt: ymd(now),
+				subscriptionExpiresAt: ymd(trialEnd),
+			},
+		});
+		setShowTenantForm(false);
+		setCredentials({ owner: data.owner, centre: data.name, mobile: data.mobile, password: generateTempPassword() });
 	}
 
 	function openTenantForm(tenant?: Tenant) {
@@ -96,7 +116,25 @@ export default function Tenants() {
 		setShowTenantForm(true);
 	}
 
+	function toggleStatus(tenant: Tenant) {
+		if (tenant.status === "Suspended" && subscriptionState(tenant).expired) {
+			setNotice({ tone: "warn", text: `${tenant.name}'s subscription has expired. Extend the expiry date in Manage before activating.` });
+			return;
+		}
+		const next = tenant.status === "Active" ? "Suspended" : "Active";
+		store.dispatch({ type: "tenants/updated", payload: { ...tenant, status: next } });
+		setNotice({ tone: "ok", text: `${tenant.name} is now ${next.toLowerCase()}.` });
+	}
+
+	function manageTenant(tenant: Tenant) {
+		setViewingId(null);
+		openTenantForm(tenant);
+		window.scrollTo({ top: 0, behavior: "smooth" });
+	}
+
 	function deleteTenant(tenant: Tenant) {
+		if (!window.confirm(`Delete ${tenant.name}? This cannot be undone.`)) return;
+		setViewingId(null);
 		store.dispatch({ type: "tenants/deleted", payload: tenant.id });
 		if (tenantToEdit?.id === tenant.id) {
 			setShowTenantForm(false);
@@ -145,16 +183,29 @@ export default function Tenants() {
 						})}
 					</div>
 					<Button onClick={() => showTenantForm ? setShowTenantForm(false) : openTenantForm()}>
-						{showTenantForm ? "Close form" : "Add demo tenant"}
+						{showTenantForm ? "Close form" : "Add service centre"}
 					</Button>
 				</div>
-				{showTenantForm && (
+				{notice && (
+					<div role="status" className={`mb-5 flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${notice.tone === "ok" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+						<span>{notice.text}</span>
+						<button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="font-black opacity-60 hover:opacity-100">×</button>
+					</div>
+				)}
+				{showTenantForm && !tenantToEdit && (
+					<AddTenantForm
+						existingMobiles={items.flatMap((tenant) => (tenant.mobile ? [tenant.mobile] : []))}
+						onCreate={createTenant}
+						onCancel={() => setShowTenantForm(false)}
+					/>
+				)}
+				{showTenantForm && tenantToEdit && (
 					<section className="mb-5 rounded-xl border border-slate-200 bg-white p-5" aria-labelledby="add-tenant-heading">
 						<div className="mb-4">
-							<h2 id="add-tenant-heading" className="text-lg font-bold text-slate-900">{tenantToEdit ? "Manage tenant" : "Add tenant details"}</h2>
-							<p className="mt-1 text-sm text-slate-500">{tenantToEdit ? `Update details for ${tenantToEdit.name}.` : "Enter the service centre and subscription information."}</p>
+							<h2 id="add-tenant-heading" className="text-lg font-bold text-slate-900">Manage tenant</h2>
+							<p className="mt-1 text-sm text-slate-500">Update details for {tenantToEdit.name}.</p>
 						</div>
-						<form key={tenantToEdit?.id ?? "new-tenant"} onSubmit={saveTenant} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+						<form key={tenantToEdit.id} onSubmit={saveTenant} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 							<label className="block space-y-2">
 								<span className="text-sm font-bold text-slate-700">Service centre name</span>
 								<input name="name" required className="input" defaultValue={tenantToEdit?.name ?? ""} placeholder="e.g. City Auto Care" />
@@ -171,6 +222,7 @@ export default function Tenants() {
 								<span className="text-sm font-bold text-slate-700">Subscription plan</span>
 								<select name="plan" required defaultValue={tenantToEdit?.plan ?? ""} className="input">
 									<option value="" disabled>Select a plan</option>
+									<option>Free Trial</option>
 									<option>1 Month</option>
 									<option>6 Months</option>
 									<option>1 Year</option>
@@ -188,7 +240,7 @@ export default function Tenants() {
 								</select>
 							</label>
 							<div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-3">
-								<Button type="submit">{tenantToEdit ? "Save changes" : "Save tenant"}</Button>
+								<Button type="submit">Save changes</Button>
 								<button type="button" onClick={() => { setShowTenantForm(false); setTenantToEdit(null); }} className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
 							</div>
 						</form>
@@ -206,7 +258,9 @@ export default function Tenants() {
 								<Badge key="status" tone={tenant.status === "Active" ? "green" : "red"}>
 									{tenant.status}
 								</Badge>,
-								<div key="actions" className="flex items-center gap-2">
+								<div key="actions" className="flex flex-wrap items-center gap-2">
+									<button type="button" onClick={() => setViewingId(tenant.id)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700">View</button>
+									<button type="button" onClick={() => toggleStatus(tenant)} className={`rounded-lg border px-3 py-2 text-xs font-bold ${tenant.status === "Active" ? "border-rose-200 text-rose-700 hover:bg-rose-50" : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"}`}>{tenant.status === "Active" ? "Suspend" : "Activate"}</button>
 									<button type="button" onClick={() => openTenantForm(tenant)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Manage</button>
 									<button type="button" onClick={() => deleteTenant(tenant)} aria-label={`Delete ${tenant.name}`} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50">Delete</button>
 								</div>,
@@ -233,6 +287,10 @@ export default function Tenants() {
 						)}
 					</div>
 			</div>
+			{credentials && <WhatsAppCredentialsModal {...credentials} onClose={() => setCredentials(null)} />}
+			{viewing && (
+				<TenantDetailsModal tenant={viewing} onClose={() => setViewingId(null)} onToggleStatus={toggleStatus} onManage={manageTenant} />
+			)}
 		</>
 	);
 }
