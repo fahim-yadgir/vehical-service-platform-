@@ -10,6 +10,7 @@ import PasswordInput from "../../components/ui/PasswordInput";
 import Button from "../../components/ui/Button";
 
 import { roleLabels, roleRoutes, saveSession, type Role } from "../../lib/auth";
+import { findAccount, saveAccountSession, verifyPassword } from "../../lib/tenantAccounts";
 import { isMobileOrEmail } from "../../lib/validators";
 
 // Demo only: once the backend is connected the role will come from the API,
@@ -31,7 +32,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!isMobileOrEmail(identifier)) {
@@ -45,6 +46,22 @@ export default function Login() {
 
     setError("");
     setLoading(true);
+
+    // A service centre owner/manager created by the admin signs in with the temporary password.
+    const account = findAccount(identifier);
+    if (account) {
+      if (!(await verifyPassword(account, password))) {
+        setLoading(false);
+        setError("Incorrect mobile number or password.");
+        return;
+      }
+      saveSession(account.role);
+      saveAccountSession(account.mobile);
+      router.push(roleRoutes[account.role]);
+      return;
+    }
+
+    // Demo login for everyone else (until the backend exists).
     saveSession(role);
 
     setTimeout(() => {
