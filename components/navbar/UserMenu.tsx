@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, User } from "lucide-react";
 import { clearSession, getSessionRole, roleLabels, type Role } from "../../lib/auth";
 import { loadProfile } from "../../lib/customerProfile";
+import { getSessionAccount } from "../../lib/tenantAccounts";
 
 const initialsOf = (name: string) =>
   name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "U";
@@ -21,7 +22,7 @@ export default function UserMenu() {
   useEffect(() => {
     const r = getSessionRole();
     setRole(r);
-    setName(r === "customer" ? loadProfile().fullName : r ? roleLabels[r] : "");
+    setName(r === "customer" ? loadProfile().fullName : getSessionAccount()?.name ?? (r ? roleLabels[r] : ""));
   }, []);
 
   useEffect(() => {

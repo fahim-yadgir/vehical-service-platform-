@@ -4,7 +4,7 @@ import SectionHeading from "../../../components/ui/SectionHeading";
 import RevenueChart from "../../../components/charts/RevenueChart";
 import { bookings } from "../../../lib/mock-data";
 
-export default function Dashboard() {
+export default function OwnerDashboard() {
   return (
     <>
       <Topbar

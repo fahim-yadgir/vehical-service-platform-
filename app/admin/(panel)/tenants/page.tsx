@@ -10,6 +10,7 @@ import AddTenantForm, { type NewTenant } from "../../../../components/admin/AddT
 import WhatsAppCredentialsModal from "../../../../components/admin/WhatsAppCredentialsModal";
 import { generateTempPassword } from "../../../../lib/tempPassword";
 import { ymd } from "../../../../lib/revenue";
+import { createAccount, removeTenantAccounts } from "../../../../lib/tenantAccounts";
 import TenantDetailsModal, { subscriptionState } from "../../../../components/admin/TenantDetailsModal";
 import { restoreStaff, store, tenantsStorageKey, useAppSelector, type Tenant, type TenantFilter } from "../../../../lib/redux-store";
 
@@ -92,12 +93,14 @@ export default function Tenants() {
 	/** New tenant: 14-day free trial, one temporary password (shown once) for the owner. */
 	function createTenant(data: NewTenant) {
 		const latestId = items.reduce((latest, tenant) => Math.max(latest, Number(tenant.id.replace(/\D/g, "")) || 0), 0);
+		const id = `TEN${String(latestId + 1).padStart(3, "0")}`;
+		const password = generateTempPassword();
 		const now = new Date();
 		const trialEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14);
 		store.dispatch({
 			type: "tenants/added",
 			payload: {
-				id: `TEN${String(latestId + 1).padStart(3, "0")}`,
+				id,
 				name: data.name,
 				owner: data.owner,
 				mobile: data.mobile,
@@ -110,7 +113,9 @@ export default function Tenants() {
 			},
 		});
 		setShowTenantForm(false);
-		setCredentials({ owner: data.owner, centre: data.name, mobile: data.mobile, password: generateTempPassword() });
+		// Demo login for the owner: the temporary password works once, then must be changed.
+		void createAccount({ mobile: data.mobile, email: data.email || undefined, name: data.owner, role: "owner", tenantId: id, password });
+		setCredentials({ owner: data.owner, centre: data.name, mobile: data.mobile, password });
 	}
 
 	function openTenantForm(tenant?: Tenant) {
@@ -137,6 +142,7 @@ export default function Tenants() {
 	function deleteTenant(tenant: Tenant) {
 		if (!window.confirm(`Delete ${tenant.name}? This cannot be undone.`)) return;
 		setViewingId(null);
+		removeTenantAccounts(tenant.id);
 		store.dispatch({ type: "tenants/deleted", payload: tenant.id });
 		store.dispatch({ type: "staff/removedForTenant", payload: tenant.id });
 		if (tenantToEdit?.id === tenant.id) {
