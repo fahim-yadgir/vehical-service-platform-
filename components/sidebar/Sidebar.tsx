@@ -41,7 +41,9 @@ const menus: Record<Role, Array<[string, string, LucideIcon]>> = {
   owner: [
     ["Dashboard", "/owner/dashboard", LayoutDashboard],
     ["Reports", "/owner/reports", BarChart3],
+    ["My Staff", "/owner/mystaff", Users],
     ["Subscription", "/owner/subscription", CreditCard],
+    ["Profile", "/owner/profile", User],
   ],
   admin: [
     ["Dashboard", "/admin/dashboard", LayoutDashboard],

@@ -13,6 +13,18 @@ export type RecentMember = {
   status: "Active" | "Inactive";
 };
 
+/** A manager or driver the owner added to their service centre ("My Staff"). */
+export type StaffMember = {
+  id: string;
+  tenantId: string;
+  name: string;
+  mobile: string;
+  email?: string;
+  role: "Manager" | "Driver";
+  status: "Active" | "Suspended";
+  createdAt: string; // yyyy-mm-dd
+};
+
 export type TenantFilter = "all" | "new" | "old" | "expiring" | "expired" | "active" | "suspended";
 
 export const recentMembers: RecentMember[] = [
@@ -25,6 +37,7 @@ export const recentMembers: RecentMember[] = [
 
 type AppState = {
   tenants: Tenant[];
+  staff: StaffMember[];
   selectedRevenueMonth: string;
   tenantFilter: TenantFilter;
 };
@@ -35,9 +48,15 @@ type AppAction =
   | { type: "tenants/updated"; payload: Tenant }
   | { type: "tenants/deleted"; payload: string }
   | { type: "tenants/restored"; payload: Tenant[] }
-  | { type: "tenants/filterChanged"; payload: TenantFilter };
+  | { type: "tenants/filterChanged"; payload: TenantFilter }
+  | { type: "staff/added"; payload: StaffMember }
+  | { type: "staff/updated"; payload: StaffMember }
+  | { type: "staff/deleted"; payload: string }
+  | { type: "staff/removedForTenant"; payload: string }
+  | { type: "staff/restored"; payload: StaffMember[] };
 
 export const tenantsStorageKey = "vehicle-service-platform.tenants";
+export const staffStorageKey = "vehicle-service-platform.staff";
 
 const seedContacts: Record<string, { mobile: string; email?: string }> = {
   TEN001: { mobile: "9822011001", email: "rahul@autocarepune.in" },
@@ -48,6 +67,7 @@ const seededTenants: Tenant[] = initialTenants.map((t) => ({ ...t, ...seedContac
 
 const initialState: AppState = {
   tenants: seededTenants,
+  staff: [],
   selectedRevenueMonth: "Oct",
   tenantFilter: "all",
 };
@@ -66,6 +86,16 @@ function reducer(state: AppState, action: AppAction): AppState {
       return { ...state, tenants: action.payload };
     case "tenants/filterChanged":
       return { ...state, tenantFilter: action.payload };
+    case "staff/added":
+      return { ...state, staff: [...state.staff, action.payload] };
+    case "staff/updated":
+      return { ...state, staff: state.staff.map((m) => (m.id === action.payload.id ? action.payload : m)) };
+    case "staff/deleted":
+      return { ...state, staff: state.staff.filter((m) => m.id !== action.payload) };
+    case "staff/removedForTenant":
+      return { ...state, staff: state.staff.filter((m) => m.tenantId !== action.payload) };
+    case "staff/restored":
+      return { ...state, staff: action.payload };
     default:
       return state;
   }
@@ -84,6 +114,12 @@ export const store = {
       } catch {
       }
     }
+    if (typeof window !== "undefined" && (action.type === "staff/added" || action.type === "staff/updated" || action.type === "staff/deleted" || action.type === "staff/removedForTenant")) {
+      try {
+        window.localStorage.setItem(staffStorageKey, JSON.stringify(state.staff));
+      } catch {
+      }
+    }
     listeners.forEach((listener) => listener());
   },
   subscribe: (listener: () => void) => {
@@ -97,6 +133,14 @@ export function restoreTenants() {
   try {
     const saved: unknown = JSON.parse(window.localStorage.getItem(tenantsStorageKey) ?? "null");
     if (Array.isArray(saved)) store.dispatch({ type: "tenants/restored", payload: saved as Tenant[] });
+  } catch {}
+}
+
+/** Load the staff owners added, so Owner, Manager and Admin pages all see the same people after a refresh. */
+export function restoreStaff() {
+  try {
+    const saved: unknown = JSON.parse(window.localStorage.getItem(staffStorageKey) ?? "null");
+    if (Array.isArray(saved)) store.dispatch({ type: "staff/restored", payload: saved as StaffMember[] });
   } catch {}
 }
 

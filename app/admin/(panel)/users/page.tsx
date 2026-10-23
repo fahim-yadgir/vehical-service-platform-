@@ -6,7 +6,7 @@ import Topbar from "../../../../components/navbar/Topbar";
 import DataTable from "../../../../components/tables/DataTable";
 import Badge from "../../../../components/ui/Badge";
 import UserDetailsModal from "../../../../components/admin/UserDetailsModal";
-import { restoreTenants, useAppSelector } from "../../../../lib/redux-store";
+import { restoreStaff, restoreTenants, useAppSelector } from "../../../../lib/redux-store";
 import { buildUsers, roles, type PlatformUser, type UserRole } from "../../../../lib/mockUsers";
 
 const BLOCKED_KEY = "vehicle-service-platform.blockedUsers";
@@ -14,7 +14,8 @@ const PAGE_SIZE = 10;
 
 export default function Users() {
   const tenants = useAppSelector((state) => state.tenants);
-  const users = useMemo(() => buildUsers(tenants), [tenants]);
+  const staff = useAppSelector((state) => state.staff);
+  const users = useMemo(() => buildUsers(tenants, staff), [tenants, staff]);
 
   const [blocked, setBlocked] = useState<string[]>([]);
   const [role, setRole] = useState<UserRole | "all">("all");
@@ -25,6 +26,7 @@ export default function Users() {
 
   useEffect(() => {
     restoreTenants();
+    restoreStaff();
     try {
       const saved = JSON.parse(window.localStorage.getItem(BLOCKED_KEY) ?? "[]");
       if (Array.isArray(saved)) setBlocked(saved);

@@ -10,6 +10,7 @@ import PasswordInput from "../../components/ui/PasswordInput";
 import Button from "../../components/ui/Button";
 
 import { roleLabels, roleRoutes, saveSession, type Role } from "../../lib/auth";
+import { resolveManagerLogin, resolveOwnerTenantId, saveOwnerTenantId } from "../../lib/ownerTenant";
 import { isMobileOrEmail } from "../../lib/validators";
 
 // Demo only: once the backend is connected the role will come from the API,
@@ -43,9 +44,22 @@ export default function Login() {
       return;
     }
 
+    // Owners and managers belong to a tenant: remember which one so its trial/plan can be enforced.
+    let tenantId: string | null = null;
+    if (role === "owner") tenantId = resolveOwnerTenantId(identifier);
+    if (role === "manager") {
+      const result = resolveManagerLogin(identifier);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      tenantId = result.tenantId ?? null;
+    }
+
     setError("");
     setLoading(true);
     saveSession(role);
+    if (tenantId) saveOwnerTenantId(tenantId);
 
     setTimeout(() => {
       router.push(roleRoutes[role]);

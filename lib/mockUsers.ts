@@ -1,4 +1,4 @@
-import type { Tenant } from "./redux-store";
+import type { StaffMember, Tenant } from "./redux-store";
 
 export type UserRole = "Customer" | "Owner" | "Manager" | "Driver";
 export type PlatformUser = {
@@ -26,14 +26,19 @@ const joined = (i: number) => `2026-${String(1 + (i % 10)).padStart(2, "0")}-${S
  * Mock directory built from the tenants, so the Users page and the Tenants page agree:
  * tenant.users = owner + managers + drivers. Replace with an API call later.
  */
-export function buildUsers(tenants: Tenant[]): PlatformUser[] {
+export function buildUsers(tenants: Tenant[], staffList: StaffMember[] = []): PlatformUser[] {
   const users: PlatformUser[] = [];
   let n = 0;
 
   tenants.forEach((t) => {
     users.push({ id: `${t.id}-OWN`, name: t.owner, mobile: t.mobile ?? mobile(n), email: t.email ?? emailOf(t.owner, n), role: "Owner", tenant: t.name, joined: t.createdAt });
     n++;
-    const staff = Math.max(0, t.users - 1);
+    // Real staff added by the owner come first; the rest of t.users is demo data.
+    const real = staffList.filter((m) => m.tenantId === t.id);
+    real.forEach((m) => {
+      users.push({ id: m.id, name: m.name, mobile: m.mobile, email: m.email ?? "–", role: m.role, tenant: t.name, joined: m.createdAt });
+    });
+    const staff = Math.max(0, t.users - 1 - real.length);
     const managers = staff === 0 ? 0 : Math.max(1, Math.round(staff * 0.15));
     for (let i = 0; i < staff; i++) {
       const name = person(n * 3 + 1);

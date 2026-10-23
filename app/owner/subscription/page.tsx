@@ -1,5 +1,71 @@
-import PageComponent from "../../../components/owner/subscription";
+"use client";
 
-export default function Page() {
-  return <PageComponent />;
+import { useState } from "react";
+import Topbar from "../../../components/navbar/Topbar";
+import Button from "../../../components/ui/Button";
+import Badge from "../../../components/ui/Badge";
+import { CheckCircle2, Sparkles } from "lucide-react";
+import { TRIAL_DAYS, useOwnerSubscription } from "../../../lib/ownerTenant";
+
+const fmt = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
+
+export default function Subscription() {
+  const [requested, setRequested] = useState(false);
+  const sub = useOwnerSubscription();
+
+  const badge = !sub ? null : sub.suspended ? { tone: "red" as const, text: "Suspended" } : sub.expired ? { tone: "red" as const, text: "Expired" } : sub.isTrial ? { tone: "yellow" as const, text: "Free trial" } : { tone: "green" as const, text: "Active plan" };
+  const heading = sub ? (sub.isTrial ? `${TRIAL_DAYS}-Day Free Trial` : sub.tenant.plan) : "Loading…";
+  const subtitle = !sub ? "" : sub.expired ? `Ended on ${fmt(sub.tenant.subscriptionExpiresAt)}` : `${sub.isTrial ? "Trial ends" : "Active until"} ${fmt(sub.tenant.subscriptionExpiresAt)}`;
+  const daysUsed = sub?.isTrial ? Math.min(TRIAL_DAYS, Math.max(0, TRIAL_DAYS - sub.daysLeft)) : 0;
+
+  return (
+    <>
+      <Topbar title="Subscription" subtitle="Plan, usage and renewal controls" />
+      <div className="container">
+        <div className="card glow max-w-2xl overflow-hidden">
+          <div className="bg-slate-950 p-7 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                {badge && <Badge tone={badge.tone}>{badge.text}</Badge>}
+                <h2 className="mt-4 text-3xl font-black">{heading}</h2>
+                <p className="mt-2 text-slate-400">{subtitle}</p>
+              </div>
+              <Sparkles className="text-orange-400" size={32} />
+            </div>
+          </div>
+          <div className="p-7">
+            {sub?.isTrial && !sub.expired && (
+              <div className="mb-4 rounded-2xl bg-orange-50 p-4">
+                <p className="text-sm font-bold text-orange-800">
+                  {sub.daysLeft === 0 ? "Your trial ends today" : `${sub.daysLeft} day${sub.daysLeft === 1 ? "" : "s"} left in your free trial`}
+                </p>
+                <div className="mt-3 progress-track"><div className="progress-fill" style={{ width: `${(daysUsed / TRIAL_DAYS) * 100}%` }} /></div>
+                <p className="muted mt-2 text-xs">Day {daysUsed} of {TRIAL_DAYS}</p>
+              </div>
+            )}
+            {sub?.locked && (
+              <p role="alert" className="mb-4 rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+                {sub.suspended ? "This account is suspended. Contact AutoServe support." : "Your access is paused. Choose a plan to continue."}
+              </p>
+            )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="muted text-xs">Bookings this month</p>
+                <p className="mt-2 text-xl font-black">386 / 1,000</p>
+                <div className="mt-3 progress-track"><div className="progress-fill w-[39%]" /></div>
+              </div>
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="muted text-xs">Auto renewal</p>
+                <p className="mt-2 flex items-center gap-2 font-black text-emerald-600"><CheckCircle2 size={18} /> Enabled</p>
+              </div>
+            </div>
+            <div className="mt-6 flex items-center justify-between gap-3">
+              <p className="text-sm font-bold text-emerald-600">{requested ? "Demo renewal request captured" : "Frontend-only subscription flow"}</p>
+              <Button onClick={() => setRequested(true)}>{sub?.isTrial ? "Choose a plan" : "Renew / Upgrade"}</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }

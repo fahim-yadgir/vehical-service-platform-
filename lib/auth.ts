@@ -30,5 +30,8 @@ export function getSessionRole(): Role | null {
 }
 export function clearSession() {
   if (typeof window !== "undefined")
-    localStorage.removeItem("vehicle-service-role");
+    {
+      localStorage.removeItem("vehicle-service-role");
+      localStorage.removeItem("vehicle-service-tenant");
+    }
 }

@@ -11,7 +11,7 @@ import WhatsAppCredentialsModal from "../../../../components/admin/WhatsAppCrede
 import { generateTempPassword } from "../../../../lib/tempPassword";
 import { ymd } from "../../../../lib/revenue";
 import TenantDetailsModal, { subscriptionState } from "../../../../components/admin/TenantDetailsModal";
-import { store, tenantsStorageKey, useAppSelector, type Tenant, type TenantFilter } from "../../../../lib/redux-store";
+import { restoreStaff, store, tenantsStorageKey, useAppSelector, type Tenant, type TenantFilter } from "../../../../lib/redux-store";
 
 const filters: { value: TenantFilter; label: string }[] = [
 	{ value: "all", label: "All tenants" },
@@ -39,6 +39,7 @@ function matchesFilter(tenant: Tenant, filter: TenantFilter, todayTime: number, 
 
 export default function Tenants() {
 	const items = useAppSelector((state) => state.tenants);
+	const staff = useAppSelector((state) => state.staff);
 	const selectedFilter = useAppSelector((state) => state.tenantFilter);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [showTenantForm, setShowTenantForm] = useState(false);
@@ -58,6 +59,7 @@ export default function Tenants() {
 	const pageItems = filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
 	useEffect(() => {
+		restoreStaff();
 		try {
 			const savedTenants = window.localStorage.getItem(tenantsStorageKey);
 			if (savedTenants) {
@@ -136,6 +138,7 @@ export default function Tenants() {
 		if (!window.confirm(`Delete ${tenant.name}? This cannot be undone.`)) return;
 		setViewingId(null);
 		store.dispatch({ type: "tenants/deleted", payload: tenant.id });
+		store.dispatch({ type: "staff/removedForTenant", payload: tenant.id });
 		if (tenantToEdit?.id === tenant.id) {
 			setShowTenantForm(false);
 			setTenantToEdit(null);
@@ -194,7 +197,7 @@ export default function Tenants() {
 				)}
 				{showTenantForm && !tenantToEdit && (
 					<AddTenantForm
-						existingMobiles={items.flatMap((tenant) => (tenant.mobile ? [tenant.mobile] : []))}
+						existingMobiles={[...items.flatMap((tenant) => (tenant.mobile ? [tenant.mobile] : [])), ...staff.map((member) => member.mobile)]}
 						onCreate={createTenant}
 						onCancel={() => setShowTenantForm(false)}
 					/>
