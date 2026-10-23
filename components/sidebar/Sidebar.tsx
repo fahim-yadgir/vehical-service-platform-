@@ -19,6 +19,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Settings,
+  IndianRupee,
   type LucideIcon,
 } from "lucide-react";
 import { clearSession, roleLabels, type Role } from "../../lib/auth";
@@ -42,6 +43,7 @@ const menus: Record<Role, Array<[string, string, LucideIcon]>> = {
     ["Dashboard", "/owner/dashboard", LayoutDashboard],
     ["Reports", "/owner/reports", BarChart3],
     ["My Staff", "/owner/mystaff", Users],
+    ["My Rates", "/owner/myrates", IndianRupee],
     ["Subscription", "/owner/subscription", CreditCard],
     ["Profile", "/owner/profile", User],
   ],

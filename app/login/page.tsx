@@ -10,7 +10,8 @@ import PasswordInput from "../../components/ui/PasswordInput";
 import Button from "../../components/ui/Button";
 
 import { roleLabels, roleRoutes, saveSession, type Role } from "../../lib/auth";
-import { findAccount, saveAccountSession, verifyPassword } from "../../lib/tenantAccounts";
+import { clearAccountSession, findAccount, saveAccountSession, verifyPassword } from "../../lib/tenantAccounts";
+import { resolveManagerLogin, resolveOwnerTenantId, saveOwnerTenantId } from "../../lib/ownerTenant";
 import { isMobileOrEmail } from "../../lib/validators";
 
 // Demo only: once the backend is connected the role will come from the API,
@@ -44,41 +45,49 @@ export default function Login() {
       return;
     }
 
-    // Owners and managers belong to a tenant: remember which one so its trial/plan can be enforced.
-    let tenantId: string | null = null;
-    if (role === "owner") tenantId = resolveOwnerTenantId(identifier);
-    if (role === "manager") {
-      const result = resolveManagerLogin(identifier);
-      if (result.error) {
-        setError(result.error);
-        return;
-      }
-      tenantId = result.tenantId ?? null;
-    }
-
     setError("");
     setLoading(true);
 
-    // A service centre owner/manager created by the admin signs in with the temporary password.
+    // A centre owner/manager created from the admin or My Staff pages has a saved login.
+    // Its temporary password is checked here; the "set a new password" popup then opens inside the workspace.
     const account = findAccount(identifier);
-    if (account) {
-      if (!(await verifyPassword(account, password))) {
-        setLoading(false);
-        setError("Incorrect mobile number or password.");
-        return;
-      }
-      saveSession(account.role);
-      saveAccountSession(account.mobile);
-      router.push(roleRoutes[account.role]);
+    if (account && !(await verifyPassword(account, password))) {
+      setLoading(false);
+      setError("Incorrect mobile number or password.");
       return;
     }
 
-    // Demo login for everyone else (until the backend exists).
-    saveSession(role);
+    if (account?.role === "driver") {
+      setLoading(false);
+      setError("Driver accounts don't have a web workspace. Please use the driver app.");
+      return;
+    }
+
+    // The saved account decides the role; demo logins use the role picked on this page.
+    const signInRole: Role = account?.role ?? role;
+    let tenantId: string | null = account?.tenantId ?? null;
+
+    if (signInRole === "manager") {
+      // Blocks suspended, admin-blocked and driver accounts.
+      const result = resolveManagerLogin(identifier);
+      if (result.error) {
+        setLoading(false);
+        setError(result.error);
+        return;
+      }
+      tenantId ??= result.tenantId ?? null;
+    }
+    if (signInRole === "owner" && !tenantId) tenantId = resolveOwnerTenantId(identifier);
+
+    saveSession(signInRole);
+    // A demo login must not inherit the previous person's account, or their password popup would open.
+    if (account) saveAccountSession(account.mobile);
+    else clearAccountSession();
+    // Remember the tenant so its trial/plan can be shown and enforced.
     if (tenantId) saveOwnerTenantId(tenantId);
 
     setTimeout(() => {
-      router.push(roleRoutes[role]);
+      router.push(roleRoutes[signInRole]);
     }, 500);
   };
 

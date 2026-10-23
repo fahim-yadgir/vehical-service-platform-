@@ -8,6 +8,7 @@ import Button from "../../../components/ui/Button";
 import AddStaffForm, { type NewStaff } from "../../../components/owner/AddStaffForm";
 import WhatsAppCredentialsModal from "../../../components/admin/WhatsAppCredentialsModal";
 import { generateTempPassword } from "../../../lib/tempPassword";
+import { createAccount, removeAccount } from "../../../lib/tenantAccounts";
 import { ymd } from "../../../lib/revenue";
 import { useOwnerSubscription } from "../../../lib/ownerTenant";
 import { restoreStaff, store, useAppSelector, type StaffMember } from "../../../lib/redux-store";
@@ -42,7 +43,7 @@ export default function MyStaff() {
   const takenMobiles = [...tenants.flatMap((t) => (t.mobile ? [t.mobile] : [])), ...allStaff.map((m) => m.mobile)];
 
   /** Same flow as the admin creating an owner: add, one temporary password shown once, send on WhatsApp. */
-  function createStaff(data: NewStaff) {
+  async function createStaff(data: NewStaff) {
     if (!tenant) return;
     const latest = allStaff.reduce((max, m) => Math.max(max, Number(m.id.replace(/\D/g, "")) || 0), 0);
     store.dispatch({
@@ -61,7 +62,10 @@ export default function MyStaff() {
     // Keep the tenant's user count (shown to the admin) in step.
     store.dispatch({ type: "tenants/updated", payload: { ...tenant, users: tenant.users + 1 } });
     setShowForm(false);
-    setCredentials({ owner: data.name, centre: tenant.name, mobile: data.mobile, password: generateTempPassword(), staffRole: data.role === "Driver" ? "Staff (Driver)" : "Manager", reset: false });
+    // Same as the admin creating an owner: a login with a temporary password that must be changed on first sign-in.
+    const password = generateTempPassword();
+    await createAccount({ mobile: data.mobile, email: data.email || undefined, name: data.name, role: data.role === "Driver" ? "driver" : "manager", tenantId: tenant.id, password });
+    setCredentials({ owner: data.name, centre: tenant.name, mobile: data.mobile, password, staffRole: data.role === "Driver" ? "Staff (Driver)" : "Manager", reset: false });
   }
 
   function toggleStatus(m: StaffMember) {
@@ -70,14 +74,18 @@ export default function MyStaff() {
     setNotice({ tone: "ok", text: `${m.name} is now ${next.toLowerCase()}.${next === "Suspended" ? " They can no longer sign in." : ""}` });
   }
 
-  function resetPassword(m: StaffMember) {
+  async function resetPassword(m: StaffMember) {
     if (!tenant) return;
-    setCredentials({ owner: m.name, centre: tenant.name, mobile: m.mobile, password: generateTempPassword(), staffRole: m.role, reset: true });
+    // Replaces the login with a new temporary password; they must change it again on next sign-in.
+    const password = generateTempPassword();
+    await createAccount({ mobile: m.mobile, email: m.email, name: m.name, role: m.role === "Driver" ? "driver" : "manager", tenantId: tenant.id, password });
+    setCredentials({ owner: m.name, centre: tenant.name, mobile: m.mobile, password, staffRole: m.role, reset: true });
   }
 
   function remove(m: StaffMember) {
     if (!tenant || !window.confirm(`Remove ${m.name}? They will no longer be able to sign in.`)) return;
     store.dispatch({ type: "staff/deleted", payload: m.id });
+    removeAccount(m.mobile);
     store.dispatch({ type: "tenants/updated", payload: { ...tenant, users: Math.max(1, tenant.users - 1) } });
     setNotice({ tone: "ok", text: `${m.name} was removed.` });
   }

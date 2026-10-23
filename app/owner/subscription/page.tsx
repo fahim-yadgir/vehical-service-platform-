@@ -5,9 +5,27 @@ import { CheckCircle2, Sparkles } from "lucide-react";
 import Topbar from "../../../components/navbar/Topbar";
 import Button from "../../../components/ui/Button";
 import Badge from "../../../components/ui/Badge";
+import { TRIAL_DAYS, useOwnerSubscription } from "../../../lib/ownerTenant";
+
+const fmt = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
 
 export default function OwnerSubscription() {
   const [requested, setRequested] = useState(false);
+  // The plan comes from the tenant the admin created: a new centre starts on a 14-day free trial.
+  const sub = useOwnerSubscription();
+
+  const badge = !sub
+    ? null
+    : sub.suspended
+      ? { tone: "red" as const, text: "Suspended" }
+      : sub.expired
+        ? { tone: "red" as const, text: sub.isTrial ? "Trial ended" : "Expired" }
+        : sub.isTrial
+          ? { tone: "yellow" as const, text: "Free trial" }
+          : { tone: "green" as const, text: "Active plan" };
+  const heading = !sub ? "Loading…" : sub.isTrial ? `${TRIAL_DAYS}-Day Free Trial` : sub.tenant.plan;
+  const subtitle = !sub ? "" : sub.expired ? `Ended on ${fmt(sub.tenant.subscriptionExpiresAt)}` : `${sub.isTrial ? "Trial ends" : "Active until"} ${fmt(sub.tenant.subscriptionExpiresAt)}`;
+  const daysUsed = sub?.isTrial ? Math.min(TRIAL_DAYS, Math.max(0, TRIAL_DAYS - sub.daysLeft)) : 0;
 
   return (
     <>
@@ -17,14 +35,28 @@ export default function OwnerSubscription() {
           <div className="bg-slate-950 p-7 text-white">
             <div className="flex items-center justify-between">
               <div>
-                <Badge tone="green">Active plan</Badge>
-                <h2 className="mt-4 text-3xl font-black">1 Year Business</h2>
-                <p className="mt-2 text-slate-400">Active until 02 July 2027</p>
+                {badge && <Badge tone={badge.tone}>{badge.text}</Badge>}
+                <h2 className="mt-4 text-3xl font-black">{heading}</h2>
+                <p className="mt-2 text-slate-400">{subtitle}</p>
               </div>
               <Sparkles className="text-orange-400" size={32} />
             </div>
           </div>
           <div className="p-7">
+            {sub?.isTrial && !sub.expired && (
+              <div className="mb-4 rounded-2xl bg-orange-50 p-4">
+                <p className="text-sm font-bold text-orange-800">
+                  {sub.daysLeft === 0 ? "Your trial ends today" : `${sub.daysLeft} day${sub.daysLeft === 1 ? "" : "s"} left in your free trial`}
+                </p>
+                <div className="mt-3 progress-track"><div className="progress-fill" style={{ width: `${(daysUsed / TRIAL_DAYS) * 100}%` }} /></div>
+                <p className="muted mt-2 text-xs">Day {daysUsed} of {TRIAL_DAYS}</p>
+              </div>
+            )}
+            {sub?.locked && (
+              <p role="alert" className="mb-4 rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+                {sub.suspended ? "This account is suspended. Contact AutoServe support." : "Your access is paused. Choose a plan to continue."}
+              </p>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl bg-slate-50 p-4">
                 <p className="muted text-xs">Bookings this month</p>
@@ -38,7 +70,7 @@ export default function OwnerSubscription() {
             </div>
             <div className="mt-6 flex items-center justify-between gap-3">
               <p className="text-sm font-bold text-emerald-600">{requested ? "Demo renewal request captured" : "Frontend-only subscription flow"}</p>
-              <Button onClick={() => setRequested(true)}>Renew / Upgrade</Button>
+              <Button onClick={() => setRequested(true)}>{sub?.isTrial ? "Choose a plan" : "Renew / Upgrade"}</Button>
             </div>
           </div>
         </div>

@@ -5,7 +5,8 @@
  * "temporary password -> forced change" flow can be tried without a backend.
  * The real backend must hash passwords (bcrypt/argon2) and never trust the browser.
  */
-export type AccountRole = "owner" | "manager";
+/** "driver" is for staff the owner adds who do not use the web workspace yet. */
+export type AccountRole = "owner" | "manager" | "driver";
 
 export type TenantAccount = {
   mobile: string;
@@ -57,6 +58,11 @@ export async function createAccount(a: Omit<TenantAccount, "hash" | "mustChangeP
 
 export function removeTenantAccounts(tenantId: string) {
   saveAccounts(loadAccounts().filter((x) => x.tenantId !== tenantId));
+}
+
+/** Removes one login, e.g. when the owner removes a staff member. */
+export function removeAccount(mobile: string) {
+  saveAccounts(loadAccounts().filter((x) => x.mobile !== mobile));
 }
 
 /** Matches by mobile number or email. */

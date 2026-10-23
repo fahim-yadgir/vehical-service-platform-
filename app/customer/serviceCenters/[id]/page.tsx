@@ -12,6 +12,7 @@ import Badge from "../../../../components/ui/Badge";
 import { serviceCenters } from "../../../../lib/serviceCenters";
 import { getCenterProfile, isOpenAt, type VehicleKind } from "../../../../lib/serviceCenterProfiles";
 import { distanceKm, formatKm } from "../../../../lib/geo";
+import { loadOwnerRates, rateLabel, tenantIdForCenter, type OwnerRates } from "../../../../lib/ownerRates";
 import { DEFAULT_LOCATION, loadLocation, type SavedLocation } from "../../../../lib/customerLocation";
 
 const ServiceCentersMap = dynamic(() => import("../../../../components/map/ServiceCentersMap"), {
@@ -61,6 +62,8 @@ export default function ServiceCenterProfile() {
   const [starFilter, setStarFilter] = useState(0);
   const [sort, setSort] = useState<"helpful" | "recent" | "high" | "low">("helpful");
   const [voted, setVoted] = useState<string[]>([]);
+  // Rates the centre's owner fixed in My Rates. Falls back to the standard prices below when none are saved.
+  const [ownerRates, setOwnerRates] = useState<OwnerRates | null>(null);
 
   useEffect(() => {
     const saved = loadLocation();
@@ -69,6 +72,10 @@ export default function ServiceCenterProfile() {
   }, []);
 
   const profile = useMemo(() => (center ? getCenterProfile(center) : null), [center]);
+
+  useEffect(() => {
+    setOwnerRates(center ? loadOwnerRates(tenantIdForCenter(center.id)) : null);
+  }, [center]);
 
   const reviews = useMemo(() => {
     if (!profile) return [];
@@ -95,6 +102,15 @@ export default function ServiceCenterProfile() {
       </>
     );
   }
+
+  const ownerServices = ownerRates?.services.length ? ownerRates.services : null;
+  const ownerFacilities = ownerRates?.facilities.length ? ownerRates.facilities : null;
+  const serviceRows = ownerServices
+    ? ownerServices.map((s) => ({ name: s.name, note: s.note, price: rateLabel(s.price) }))
+    : profile.serviceCharges.map((s) => ({ name: s.name, note: undefined as string | undefined, price: `from ${inr(s.from)}` }));
+  const facilityRows = ownerFacilities
+    ? ownerFacilities.map((f) => ({ name: f.name, note: f.note, price: rateLabel(f.price) }))
+    : profile.facilityCharges;
 
   const distance = distanceKm(location, center.location);
   const today = now ? ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][now.getDay()] : null;
@@ -239,20 +255,23 @@ export default function ServiceCenterProfile() {
         </Section>
 
         {/* Charges */}
-        <Section id="charges" title="Charges" subtitle="Starting prices for individual services and facilities.">
+        <Section id="charges" title="Charges" subtitle={ownerServices || ownerFacilities ? "Rates fixed by this service centre." : "Starting prices for individual services and facilities."}>
           <div className="grid gap-6 lg:grid-cols-2">
             <div>
               <h3 className="mb-2 flex items-center gap-2 font-black"><Wrench size={17} className="text-orange-500" /> Services</h3>
               <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 text-sm">
-                {profile.serviceCharges.map((s) => (
-                  <li key={s.name} className="flex justify-between px-4 py-3"><span>{s.name}</span><span className="font-black">from {inr(s.from)}</span></li>
+                {serviceRows.map((s) => (
+                  <li key={s.name} className="flex items-start justify-between gap-3 px-4 py-3">
+                    <span>{s.name}{s.note && <span className="block text-xs text-slate-400">{s.note}</span>}</span>
+                    <span className="shrink-0 font-black">{s.price}</span>
+                  </li>
                 ))}
               </ul>
             </div>
             <div>
               <h3 className="mb-2 flex items-center gap-2 font-black"><Truck size={17} className="text-orange-500" /> Facilities &amp; extras</h3>
               <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 text-sm">
-                {profile.facilityCharges.map((f) => (
+                {facilityRows.map((f) => (
                   <li key={f.name} className="flex items-start justify-between gap-3 px-4 py-3">
                     <span>{f.name}{f.note && <span className="block text-xs text-slate-400">{f.note}</span>}</span>
                     <span className={`shrink-0 font-black ${f.price === "Not available" ? "text-slate-400" : ""}`}>{f.price}</span>

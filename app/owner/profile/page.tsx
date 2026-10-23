@@ -1,17 +1,79 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import Topbar from "../../../components/navbar/Topbar";
 import Button from "../../../components/ui/Button";
+import PasswordInput from "../../../components/ui/PasswordInput";
+import ForcePasswordChange from "../../../components/auth/ForcePasswordChange";
 import LocationPicker, { type PickedLocation } from "../../../components/map/LocationPicker";
-import { CheckCircle2 } from "lucide-react";
-import { useOwnerSubscription } from "../../../lib/ownerTenant";
+import { CheckCircle2, LogOut } from "lucide-react";
+import { clearOwnerTenantId, useOwnerSubscription } from "../../../lib/ownerTenant";
+import { clearSession } from "../../../lib/auth";
+import { changePassword, getSessionAccount, verifyPassword } from "../../../lib/tenantAccounts";
 import { emptyProfile, isProfileComplete, useOwnerProfile, type OwnerProfile } from "../../../lib/ownerProfile";
 import { isEmail, isGst, isPincode } from "../../../lib/validators";
 
 type Errors = Partial<Record<keyof OwnerProfile, string>>;
 
+/** At least 8 characters, with a letter and a number. */
+const strongEnough = (value: string) => value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value);
+
+/** Same as the admin profile: current password, new password, confirm. Works on the saved login of this owner. */
+function ChangePasswordCard() {
+  const [form, setForm] = useState({ current: "", next: "", confirm: "" });
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({ ...form, [field]: e.target.value });
+    setError("");
+    setDone(false);
+  };
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!strongEnough(form.next)) return setError("New password must be at least 8 characters and include a letter and a number.");
+    if (form.next === form.current) return setError("New password must be different from the current password.");
+    if (form.next !== form.confirm) return setError("New password and confirm password do not match.");
+    setSaving(true);
+    // Demo logins have no saved account, so there is nothing to check or store for them.
+    const account = getSessionAccount();
+    if (account) {
+      if (!(await verifyPassword(account, form.current))) {
+        setSaving(false);
+        return setError("Current password is incorrect.");
+      }
+      await changePassword(account.mobile, form.next);
+    }
+    setSaving(false);
+    setForm({ current: "", next: "", confirm: "" });
+    setDone(true);
+  };
+
+  return (
+    <form onSubmit={submit} className="card max-w-3xl space-y-4 p-6">
+      <div>
+        <h3 className="text-lg font-black text-slate-900">Change password</h3>
+        <p className="mt-1 text-sm text-slate-500">Use at least 8 characters with a letter and a number.</p>
+      </div>
+      <PasswordInput label="Current password" value={form.current} onChange={set("current")} autoComplete="current-password" required />
+      <PasswordInput label="New password" value={form.next} onChange={set("next")} autoComplete="new-password" required />
+      <PasswordInput label="Confirm new password" value={form.confirm} onChange={set("confirm")} autoComplete="new-password" required />
+      {error && <p role="alert" className="text-sm font-semibold text-rose-600">{error}</p>}
+      {done && (
+        <p role="status" className="flex items-center gap-1.5 text-sm font-bold text-emerald-600">
+          <CheckCircle2 size={16} /> Password changed successfully.
+        </p>
+      )}
+      <Button type="submit" loading={saving}>Update password</Button>
+    </form>
+  );
+}
+
 export default function OwnerProfilePage() {
+  const router = useRouter();
   const sub = useOwnerSubscription();
   const tenant = sub?.tenant;
   const { profile, loaded, save } = useOwnerProfile(tenant?.id);
@@ -68,12 +130,20 @@ export default function OwnerProfilePage() {
     </label>
   );
 
+  const logout = () => {
+    clearSession();
+    clearOwnerTenantId();
+    router.push("/login");
+  };
+
   const location: PickedLocation | null = form.lat !== undefined && form.lng !== undefined ? { lat: form.lat, lng: form.lng, address: form.address } : null;
   const complete = isProfileComplete(profile);
 
   return (
     <>
       <Topbar title="Profile" subtitle="Your service centre details" />
+      {/* Opens on its own after the first login with a temporary password. */}
+      <ForcePasswordChange />
       <div className="container space-y-5">
         {loaded && !complete && (
           <div role="status" className="max-w-3xl rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-800">
@@ -125,6 +195,18 @@ export default function OwnerProfilePage() {
             <Button type="submit">Save profile</Button>
           </div>
         </form>
+
+        <ChangePasswordCard />
+
+        <div className="card flex max-w-3xl items-center justify-between gap-4 p-5">
+          <div>
+            <h3 className="font-black text-slate-900">Log out</h3>
+            <p className="text-sm text-slate-500">Sign out of this device.</p>
+          </div>
+          <button type="button" onClick={logout} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50">
+            <LogOut size={16} /> Logout
+          </button>
+        </div>
       </div>
     </>
   );
