@@ -1,9 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { VehicleKind } from "./serviceCenterProfiles";
 
-/** One rate the owner fixes, e.g. "Oil Change" for 799. A price of 0 means "Free". */
-export type RateItem = { id: string; name: string; price: number; note?: string };
+/** Which vehicles a rate is for. "Car" = 4 wheeler, "Bike" = 2 wheeler (same words as the customer page). */
+export type RateVehicle = VehicleKind | "Both";
+
+/** One rate the owner fixes, e.g. "Oil Change" for 799 on a 4 wheeler. A price of 0 means "Free". */
+export type RateItem = { id: string; name: string; price: number; note?: string; vehicle: RateVehicle };
+
+export const vehicleLabel: Record<RateVehicle, string> = { Car: "4 Wheeler (Car)", Bike: "2 Wheeler (Bike)", Both: "2 & 4 Wheeler" };
+const vehicleShort: Record<RateVehicle, string> = { Car: "4W", Bike: "2W", Both: "" };
+
+/** Does this rate show when the customer picks this vehicle type? */
+export const rateAppliesTo = (r: Pick<RateItem, "vehicle">, kind: VehicleKind) => r.vehicle === "Both" || r.vehicle === kind;
+
+/** Two rates for the same work may not cover the same vehicle. */
+export const vehiclesOverlap = (a: RateVehicle, b: RateVehicle) => a === "Both" || b === "Both" || a === b;
+
+/** "Oil Change (4W)", or just "Oil Change" for a rate that covers both. Used where a rate becomes an order item. */
+export const rateDisplayName = (r: Pick<RateItem, "name" | "vehicle">) => (r.vehicle === "Both" ? r.name : `${r.name} (${vehicleShort[r.vehicle]})`);
 export type OwnerRates = { services: RateItem[]; facilities: RateItem[] };
 
 export const emptyRates: OwnerRates = { services: [], facilities: [] };
@@ -24,7 +40,9 @@ const asItems = (value: unknown): RateItem[] =>
   Array.isArray(value)
     ? value.flatMap((v) => {
         const r = v as Partial<RateItem> | null;
-        return r && typeof r.id === "string" && typeof r.name === "string" && typeof r.price === "number" ? [{ id: r.id, name: r.name, price: r.price, note: typeof r.note === "string" ? r.note : undefined }] : [];
+        // Rates saved before vehicle types existed count as "Both".
+        const vehicle: RateVehicle = r?.vehicle === "Car" || r?.vehicle === "Bike" ? r.vehicle : "Both";
+        return r && typeof r.id === "string" && typeof r.name === "string" && typeof r.price === "number" ? [{ id: r.id, name: r.name, price: r.price, note: typeof r.note === "string" ? r.note : undefined, vehicle }] : [];
       })
     : [];
 

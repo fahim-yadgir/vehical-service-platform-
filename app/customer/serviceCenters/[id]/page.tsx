@@ -5,14 +5,15 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import {
-  ArrowLeft, BadgeCheck, Check, Clock, MapPin, Navigation, Phone, ShieldCheck, ThumbsUp, Truck, Users, Wrench, X,
+  ArrowLeft, BadgeCheck, Check, Clock, MapPin, Navigation, Phone, ShieldCheck, ThumbsUp, Truck, Users, X,
 } from "lucide-react";
 import Topbar from "../../../../components/navbar/Topbar";
 import Badge from "../../../../components/ui/Badge";
 import { serviceCenters } from "../../../../lib/serviceCenters";
 import { getCenterProfile, isOpenAt, type VehicleKind } from "../../../../lib/serviceCenterProfiles";
 import { distanceKm, formatKm } from "../../../../lib/geo";
-import { loadOwnerRates, rateLabel, tenantIdForCenter, type OwnerRates } from "../../../../lib/ownerRates";
+import CenterCharges from "../../../../components/customer/CenterCharges";
+import { loadOwnerRates, rateAppliesTo, rateLabel, tenantIdForCenter, type OwnerRates } from "../../../../lib/ownerRates";
 import { DEFAULT_LOCATION, loadLocation, type SavedLocation } from "../../../../lib/customerLocation";
 
 const ServiceCentersMap = dynamic(() => import("../../../../components/map/ServiceCentersMap"), {
@@ -105,11 +106,12 @@ export default function ServiceCenterProfile() {
 
   const ownerServices = ownerRates?.services.length ? ownerRates.services : null;
   const ownerFacilities = ownerRates?.facilities.length ? ownerRates.facilities : null;
+  // The owner's rates show for the vehicle type the customer picked (Car / Bike). Rates for "Both" show under each.
   const serviceRows = ownerServices
-    ? ownerServices.map((s) => ({ name: s.name, note: s.note, price: rateLabel(s.price) }))
+    ? ownerServices.filter((s) => rateAppliesTo(s, kind)).map((s) => ({ name: s.name, note: s.note, price: rateLabel(s.price) }))
     : profile.serviceCharges.map((s) => ({ name: s.name, note: undefined as string | undefined, price: `from ${inr(s.from)}` }));
   const facilityRows = ownerFacilities
-    ? ownerFacilities.map((f) => ({ name: f.name, note: f.note, price: rateLabel(f.price) }))
+    ? ownerFacilities.filter((f) => rateAppliesTo(f, kind)).map((f) => ({ name: f.name, note: f.note, price: rateLabel(f.price) }))
     : profile.facilityCharges;
 
   const distance = distanceKm(location, center.location);
@@ -256,33 +258,14 @@ export default function ServiceCenterProfile() {
 
         {/* Charges */}
         <Section id="charges" title="Charges" subtitle={ownerServices || ownerFacilities ? "Rates fixed by this service centre." : "Starting prices for individual services and facilities."}>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div>
-              <h3 className="mb-2 flex items-center gap-2 font-black"><Wrench size={17} className="text-orange-500" /> Services</h3>
-              <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 text-sm">
-                {serviceRows.map((s) => (
-                  <li key={s.name} className="flex items-start justify-between gap-3 px-4 py-3">
-                    <span>{s.name}{s.note && <span className="block text-xs text-slate-400">{s.note}</span>}</span>
-                    <span className="shrink-0 font-black">{s.price}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h3 className="mb-2 flex items-center gap-2 font-black"><Truck size={17} className="text-orange-500" /> Facilities &amp; extras</h3>
-              <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200 text-sm">
-                {facilityRows.map((f) => (
-                  <li key={f.name} className="flex items-start justify-between gap-3 px-4 py-3">
-                    <span>{f.name}{f.note && <span className="block text-xs text-slate-400">{f.note}</span>}</span>
-                    <span className={`shrink-0 font-black ${f.price === "Not available" ? "text-slate-400" : ""}`}>{f.price}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-          <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800">
-            Prices are indicative and include GST. The final estimate is shared after inspection and needs your approval before any work starts.
-          </p>
+          <CenterCharges
+            services={serviceRows}
+            facilities={facilityRows}
+            kind={kind}
+            onKindChange={setKind}
+            servicesEmpty={ownerServices ? `No ${kind === "Car" ? "car" : "bike"} service rates added yet. Please call the centre.` : undefined}
+            facilitiesEmpty={ownerFacilities ? `No ${kind === "Car" ? "car" : "bike"} facility rates added yet.` : undefined}
+          />
         </Section>
 
         {/* Team + facilities */}

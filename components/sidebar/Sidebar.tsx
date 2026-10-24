@@ -20,6 +20,7 @@ import {
   ChevronsRight,
   Settings,
   IndianRupee,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import { clearSession, roleLabels, type Role } from "../../lib/auth";
@@ -41,9 +42,10 @@ const menus: Record<Role, Array<[string, string, LucideIcon]>> = {
   ],
   owner: [
     ["Dashboard", "/owner/dashboard", LayoutDashboard],
-    ["Reports", "/owner/reports", BarChart3],
+    ["All Orders", "/owner/allorders", ClipboardList],
     ["My Staff", "/owner/mystaff", Users],
     ["My Rates", "/owner/myrates", IndianRupee],
+    ["Revenue", "/owner/revenue", BarChart3],
     ["Subscription", "/owner/subscription", CreditCard],
     ["Profile", "/owner/profile", User],
   ],
