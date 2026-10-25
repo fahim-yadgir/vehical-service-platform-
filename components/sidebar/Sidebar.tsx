@@ -22,6 +22,7 @@ import {
   IndianRupee,
   ClipboardList,
   type LucideIcon,
+  UserCircle,
 } from "lucide-react";
 import { clearSession, roleLabels, type Role } from "../../lib/auth";
 import { useSidebar } from "../layout/SidebarContext";
@@ -33,13 +34,13 @@ const menus: Record<Role, Array<[string, string, LucideIcon]>> = {
     ["Vehicles", "/customer/vehicles", Car],
     ["Profile", "/customer/profile", User],
   ],
-  manager: [
-    ["Dashboard", "/manager/dashboard", LayoutDashboard],
-    ["Bookings", "/manager/bookings", CalendarDays],
-    ["Job Cards", "/manager/job-cards", FileText],
-    ["Invoices", "/manager/invoices", CreditCard],
-    ["Team", "/manager/team", Users],
-  ],
+ manager: [
+  ["Dashboard", "/manager/dashboard", LayoutDashboard],
+  ["Orders", "/manager/bookings", CalendarDays],
+  ["Staff", "/manager/team", Users],
+  ["Rates", "/manager/rates", IndianRupee],
+  ["Profile", "/manager/profile", UserCircle],
+],
   owner: [
     ["Dashboard", "/owner/dashboard", LayoutDashboard],
     ["All Orders", "/owner/allorders", ClipboardList],

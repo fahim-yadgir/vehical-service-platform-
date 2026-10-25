@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Topbar from "../../../components/navbar/Topbar";
 import Button from "../../../components/ui/Button";
 import PasswordInput from "../../../components/ui/PasswordInput";
-import ForcePasswordChange from "../../../components/auth/ForcePasswordChange";
 import LocationPicker, { type PickedLocation } from "../../../components/map/LocationPicker";
 import { CheckCircle2, LogOut } from "lucide-react";
 import { clearOwnerTenantId, useOwnerSubscription } from "../../../lib/ownerTenant";
@@ -143,7 +142,6 @@ export default function OwnerProfilePage() {
     <>
       <Topbar title="Profile" subtitle="Your service centre details" />
       {/* Opens on its own after the first login with a temporary password. */}
-      <ForcePasswordChange />
       <div className="container space-y-5">
         {loaded && !complete && (
           <div role="status" className="max-w-3xl rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-800">

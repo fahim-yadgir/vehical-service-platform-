@@ -101,3 +101,7 @@ export function getSessionAccount() {
     return undefined;
   }
 }
+/** Changes the name and email on one login. The mobile stays: it is the login. */
+export function updateAccountProfile(mobile: string, changes: { name: string; email?: string }) {
+  saveAccounts(loadAccounts().map((a) => (a.mobile === mobile ? { ...a, ...changes } : a)));
+}
