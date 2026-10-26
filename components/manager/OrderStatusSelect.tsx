@@ -1,6 +1,6 @@
 "use client";
 
-import { nextStatuses, statusLabel } from "../../lib/orderOps";
+import { nextStatuses, statusLabel } from "../../lib/orders";
 
 export default function OrderStatusSelect({
   status,

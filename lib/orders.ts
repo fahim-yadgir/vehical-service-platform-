@@ -238,3 +238,6 @@ export const formatOrderTime = (iso?: string) =>
         minute: "2-digit",
       })
     : "";
+    /** Orders of one service centre (the demo seed orders belong to every centre). */
+export const forTenant = (orders: Order[], tenantId?: string) =>
+  orders.filter((o) => !o.tenantId || o.tenantId === tenantId);
