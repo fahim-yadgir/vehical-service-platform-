@@ -84,3 +84,21 @@ export function useOwnerSubscription(): OwnerSubscription | null {
   const tenant = tenants.find((t) => t.id === tenantId);
   return tenant ? describeSubscription(tenant) : null;
 }
+/** Staff login: only a staff member the owner/manager added can sign in. Suspended or blocked staff cannot. */
+export function resolveStaffLogin(identifier: string): { tenantId: string; error?: undefined } | { error: string; tenantId?: undefined } {
+  restoreTenants();
+  restoreStaff();
+  const id = identifier.trim().toLowerCase();
+  const member = store.getState().staff.find((m) => m.mobile === id || m.email?.toLowerCase() === id);
+  if (!member || member.role !== "Driver") {
+    return { error: "No staff account found. Ask your service centre to add you from My Staff." };
+  }
+  let blocked: string[] = [];
+  try {
+    const saved: unknown = JSON.parse(window.localStorage.getItem(BLOCKED_USERS_KEY) ?? "[]");
+    if (Array.isArray(saved)) blocked = saved as string[];
+  } catch {}
+  if (blocked.includes(member.id)) return { error: "This account has been blocked. Please contact AutoServe support." };
+  if (member.status === "Suspended") return { error: "Your account is suspended. Please contact your service centre." };
+  return { tenantId: member.tenantId };
+}

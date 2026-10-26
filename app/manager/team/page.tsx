@@ -36,7 +36,7 @@ export default function ManagerStaff() {
   }, []);
 
   // A manager looks after staff (drivers) only, never other managers.
-  const mine = allStaff.filter((m) => m.tenantId === tenant?.id && m.role === "Driver");
+  const mine = allStaff.filter((m) => m.tenantId === tenant?.id && m.role === "staff");
   // A mobile number can belong to only one account on the whole platform.
   const takenMobiles = [...tenants.flatMap((t) => (t.mobile ? [t.mobile] : [])), ...allStaff.map((m) => m.mobile)];
   const openOrders = (id: string) =>
@@ -53,7 +53,7 @@ export default function ManagerStaff() {
         name: data.name,
         mobile: data.mobile,
         email: data.email || undefined,
-        role: "Driver", // always staff, whatever the form says
+        role: "staff", // always staff, whatever the form says
         status: "Active",
         createdAt: ymd(new Date()),
       },
@@ -62,26 +62,26 @@ export default function ManagerStaff() {
     setShowForm(false);
     // A login with a temporary password that must be changed on first sign-in.
     const password = generateTempPassword();
-    await createAccount({ mobile: data.mobile, email: data.email || undefined, name: data.name, role: "driver", tenantId: tenant.id, password });
+    await createAccount({ mobile: data.mobile, email: data.email || undefined, name: data.name, role: "staff", tenantId: tenant.id, password });
     setCredentials({ owner: data.name, centre: tenant.name, mobile: data.mobile, password, staffRole: "Staff (Driver)", reset: false });
   }
 
   function toggleStatus(m: StaffMember) {
-    if (m.role !== "Driver") return;
+    if (m.role !== "staff") return;
     const next = m.status === "Active" ? "Suspended" : "Active";
     store.dispatch({ type: "staff/updated", payload: { ...m, status: next } });
     setNotice(`${m.name} is now ${next.toLowerCase()}.${next === "Suspended" ? " They can no longer sign in." : ""}`);
   }
 
   async function resetPassword(m: StaffMember) {
-    if (!tenant || m.role !== "Driver") return;
+    if (!tenant || m.role !== "staff") return;
     const password = generateTempPassword();
-    await createAccount({ mobile: m.mobile, email: m.email, name: m.name, role: "driver", tenantId: tenant.id, password });
+    await createAccount({ mobile: m.mobile, email: m.email, name: m.name, role: "staff", tenantId: tenant.id, password });
     setCredentials({ owner: m.name, centre: tenant.name, mobile: m.mobile, password, staffRole: "Staff (Driver)", reset: true });
   }
 
   function remove(m: StaffMember) {
-    if (!tenant || m.role !== "Driver") return;
+    if (!tenant || m.role !== "staff") return;
     const open = openOrders(m.id);
     const extra = open ? ` They have ${open} open order(s), which will need a new staff member.` : "";
     if (!window.confirm(`Remove ${m.name}? They will no longer be able to sign in.${extra}`)) return;

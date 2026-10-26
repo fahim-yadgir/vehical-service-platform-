@@ -2,9 +2,11 @@
 
 import { useSyncExternalStore } from "react";
 import { getSessionAccount } from "./tenantAccounts";
+import { getSessionRole } from "./auth";
 
 export type OrderEvent = { at: string; by: string; role: string; text: string };
 export type Actor = { name: string; role: string; at: string };
+export type Pickup = { lat: number; lng: number; address: string };
 
 /** DEMO ONLY: the backend will keep these in bookings and booking_events. */
 export type Order = {
@@ -22,7 +24,9 @@ export type Order = {
   supervisedBy?: string;
   completedBy?: Actor;
   history: OrderEvent[];
+  pickup?: Pickup;   // inside type Order, e.g. after `notes?: string;`
 };
+
 
 const seedAt = "2026-10-08T09:00:00.000Z";
 const seedBy: Actor = { name: "Fahim Yadgir", role: "customer", at: seedAt };
@@ -90,7 +94,10 @@ export function useOrders() {
 // ---- who is acting ----
 function actor(): Actor {
   const a = getSessionAccount();
-  return { name: a?.name ?? "Unknown", role: a?.role ?? "unknown", at: new Date().toISOString() };
+  // demo logins have no saved account, so fall back to the role picked on the login page
+  const role = a?.role ?? getSessionRole() ?? "unknown";
+  const fallbackName = role === "owner" ? "Owner" : role === "manager" ? "Manager" : "Unknown";
+  return { name: a?.name ?? fallbackName, role, at: new Date().toISOString() };
 }
 
 function patchOrder(
@@ -144,6 +151,7 @@ export type NewOrder = {
   amount: number;
   notes?: string;
   assignedStaff?: { id: string; name: string };
+  pickup?: Pickup;   // inside type Order, e.g. after `notes?: string;`
 };
 
 export function createOrder(input: NewOrder): string {
@@ -168,6 +176,7 @@ export function createOrder(input: NewOrder): string {
     createdBy: who,
     supervisedBy: who.role === "manager" ? who.name : undefined,
     history,
+    pickup: input.pickup,
   };
   state = [order, ...state];
   persist();

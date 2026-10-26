@@ -37,6 +37,7 @@ export default function OwnerNewOrderPage() {
       date: d.date,
       amount: d.amount,
       notes: d.notes,
+      pickup: d.pickup,
       assignedStaff: member ? { id: member.id, name: member.name } : undefined,
     });
     router.push(`/owner/allorders/${id}`);

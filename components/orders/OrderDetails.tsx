@@ -59,6 +59,7 @@ export default function OrderDetails({
           <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
             <Info label="Name" value={order.customer.name} />
             <Info label="Mobile" value={order.customer.mobile} />
+            <Info label="Pickup address" value={order.pickup?.address} />
           </dl>
         </section>
 

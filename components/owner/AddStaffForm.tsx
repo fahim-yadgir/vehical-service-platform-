@@ -7,7 +7,7 @@ export type NewStaff = {
   name: string;
   mobile: string;
   email: string;
-  role: "Manager" | "Driver";
+  role: "Manager" | "staff";
 };
 
 type Props = {
@@ -18,14 +18,14 @@ type Props = {
 };
 const roleLabel = {
   Manager: "Manager (workshop operations)",
-  Driver: "Staff / Driver (pickup & drop)",
+  staff: "Staff / Driver (pickup & drop)",
 };
 
 export default function AddStaffForm({
   existingMobiles,
   onCreate,
   onCancel,
-  roles = ["Manager", "Driver"],
+  roles = ["Manager", "staff"],
 }: Props) {
   const [form, setForm] = useState<NewStaff>({
     name: "",

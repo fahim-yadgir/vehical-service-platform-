@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import type { StaffMember } from "../../lib/redux-store";
 import type { RateItem } from "../../lib/ownerRates";
+import LocationPicker, { type PickedLocation } from "../map/LocationPicker";
 
 export type OrderFormData = {
   customer: { name: string; mobile: string };
@@ -12,6 +13,7 @@ export type OrderFormData = {
   amount: number;
   notes?: string;
   assignedStaffId?: string;
+  pickup?: { lat: number; lng: number; address: string };
 };
 
 function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
@@ -25,7 +27,6 @@ function Field({ label, error, children }: { label: string; error?: string; chil
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
-
 export default function OrderForm({
   services,
   staff,
@@ -35,6 +36,8 @@ export default function OrderForm({
   staff: StaffMember[];
   onSubmit: (data: OrderFormData) => void;
 }) {
+  const [pickup, setPickup] = useState<PickedLocation | null>(null);
+
   const [f, setF] = useState({
     name: "", mobile: "", type: "Car", brand: "", model: "", registration: "", year: "",
     serviceId: "", customService: "", amount: "", date: today(), notes: "", staffId: "",
@@ -77,6 +80,7 @@ export default function OrderForm({
       amount,
       notes: f.notes.trim() || undefined,
       assignedStaffId: f.staffId || undefined,
+            pickup: pickup && pickup.address !== "Finding address..." ? pickup : undefined,
     });
   };
 
@@ -158,7 +162,11 @@ export default function OrderForm({
           </Field>
         </div>
       </section>
-
+      <section className="space-y-3">
+        <b>Pickup location (optional)</b>
+        <p className="muted text-xs">The assigned staff will see this on their map.</p>
+        <LocationPicker value={pickup} onChange={setPickup} height={260} />
+      </section>
       <button type="button" onClick={submit}
         className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white">
         Create order

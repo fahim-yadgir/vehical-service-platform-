@@ -20,7 +20,7 @@ export type StaffMember = {
   name: string;
   mobile: string;
   email?: string;
-  role: "Manager" | "Driver";
+  role: "Manager" | "staff";
   status: "Active" | "Suspended";
   createdAt: string; // yyyy-mm-dd
 };

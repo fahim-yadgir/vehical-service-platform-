@@ -1,21 +1,24 @@
-export type Role = "customer" | "manager" | "owner" | "admin";
+export type Role = "customer" | "manager" | "owner" | "admin" | "staff";
 export const roleRoutes: Record<Role, string> = {
   customer: "/customer/dashboard",
   manager: "/manager/dashboard",
   owner: "/owner/dashboard",
   admin: "/admin/dashboard",
+  staff: "/staff/dashboard",
 };
 export const roleLabels: Record<Role, string> = {
   customer: "Customer",
   manager: "Service Centre Manager",
   owner: "Business Owner",
   admin: "Platform Admin",
+  staff: "Service Staff",
 };
 export const roleDescriptions: Record<Role, string> = {
   customer: "Vehicles, bookings, tracking and payments",
   manager: "Workshop operations and job cards",
   owner: "Business performance and subscriptions",
   admin: "Tenants, users, revenue and health",
+  staff: "Your assigned orders, pickup routes and profile",
 };
 export function saveSession(role: Role) {
   if (typeof window !== "undefined")
@@ -24,7 +27,7 @@ export function saveSession(role: Role) {
 export function getSessionRole(): Role | null {
   if (typeof window === "undefined") return null;
   const v = localStorage.getItem("vehicle-service-role");
-  return v === "customer" || v === "manager" || v === "owner" || v === "admin"
+  return v === "customer" || v === "manager" || v === "owner" || v === "admin" || v === "staff"
     ? v
     : null;
 }

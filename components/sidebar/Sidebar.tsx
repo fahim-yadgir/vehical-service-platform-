@@ -57,6 +57,11 @@ const menus: Record<Role, Array<[string, string, LucideIcon]>> = {
     ["Revenue", "/admin/revenue", BarChart3],
     ["Profile", "/admin/profile", User],
   ],
+    staff: [
+    ["Dashboard", "/staff/dashboard", LayoutDashboard],
+    ["My Orders", "/staff/orders", ClipboardList],
+    ["Profile", "/staff/profile", UserCircle],
+  ],
 };
 
 export default function Sidebar({ role }: { role: Role }) {

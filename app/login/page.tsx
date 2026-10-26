@@ -11,12 +11,19 @@ import Button from "../../components/ui/Button";
 
 import { roleLabels, roleRoutes, saveSession, type Role } from "../../lib/auth";
 import { clearAccountSession, findAccount, saveAccountSession, verifyPassword } from "../../lib/tenantAccounts";
-import { resolveManagerLogin, resolveOwnerTenantId, saveOwnerTenantId } from "../../lib/ownerTenant";
+import { resolveManagerLogin, resolveOwnerTenantId, resolveStaffLogin, saveOwnerTenantId } from "../../lib/ownerTenant";
 import { isMobileOrEmail } from "../../lib/validators";
 
 // Demo only: once the backend is connected the role will come from the API,
 // and this list (plus the role selector below) can be removed.
-const loginRoles: Role[] = ["customer", "manager", "owner"];
+const loginRoles: Role[] = ["customer", "manager", "owner", "staff"];
+
+const roleButtonLabel: Partial<Record<Role, string>> = {
+  customer: "Customer",
+  manager: "Manager",
+  owner: "Owner",
+  staff: "Staff",
+};
 
 const highlights = [
   "Book service at garages near you",
@@ -48,7 +55,7 @@ export default function Login() {
     setError("");
     setLoading(true);
 
-    // A centre owner/manager created from the admin or My Staff pages has a saved login.
+    // A centre owner/manager/staff created from the admin or My Staff pages has a saved login.
     // Its temporary password is checked here; the "set a new password" popup then opens inside the workspace.
     const account = findAccount(identifier);
     if (account && !(await verifyPassword(account, password))) {
@@ -57,18 +64,12 @@ export default function Login() {
       return;
     }
 
-    if (account?.role === "driver") {
-      setLoading(false);
-      setError("Driver accounts don't have a web workspace. Please use the driver app.");
-      return;
-    }
-
     // The saved account decides the role; demo logins use the role picked on this page.
-    const signInRole: Role = account?.role ?? role;
+    const signInRole: Role = account ? account.role : role;
     let tenantId: string | null = account?.tenantId ?? null;
 
     if (signInRole === "manager") {
-      // Blocks suspended, admin-blocked and driver accounts.
+      // Blocks suspended and admin-blocked managers.
       const result = resolveManagerLogin(identifier);
       if (result.error) {
         setLoading(false);
@@ -77,6 +78,18 @@ export default function Login() {
       }
       tenantId ??= result.tenantId ?? null;
     }
+
+    if (signInRole === "staff") {
+      // Staff must have an account added by the owner or manager. Suspended or blocked staff are refused.
+      const result = resolveStaffLogin(identifier);
+      if (result.error) {
+        setLoading(false);
+        setError(result.error);
+        return;
+      }
+      tenantId ??= result.tenantId ?? null;
+    }
+
     if (signInRole === "owner" && !tenantId) tenantId = resolveOwnerTenantId(identifier);
 
     saveSession(signInRole);
@@ -175,7 +188,7 @@ export default function Login() {
               {/* DEMO ROLE SELECT */}
               <div className="space-y-2">
                 <span className="text-sm font-bold text-slate-700">Sign in as (demo)</span>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {loginRoles.map((r) => (
                     <button
                       key={r}
@@ -188,7 +201,7 @@ export default function Login() {
                           : "border-slate-200 bg-white text-slate-600 hover:border-orange-200"
                       }`}
                     >
-                      {r === "manager" ? "Manager" : r === "owner" ? "Owner" : "Customer"}
+                      {roleButtonLabel[r]}
                     </button>
                   ))}
                 </div>

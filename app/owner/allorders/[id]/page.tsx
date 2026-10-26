@@ -5,9 +5,19 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Topbar from "../../../../components/navbar/Topbar";
 import OrderDetails from "../../../../components/orders/OrderDetails";
+import AssignStaffSelect from "../../../../components/manager/AssignStaffSelect";
+import OrderStatusSelect from "../../../../components/manager/OrderStatusSelect";
 import { useOwnerSubscription } from "../../../../lib/ownerTenant";
 import { restoreStaff, useAppSelector } from "../../../../lib/redux-store";
-import { forTenant, restoreOrders, useOrders, vehicleName } from "../../../../lib/orders";
+import {
+  assignOrder,
+  changeOrderStatus,
+  forTenant,
+  isClosed,
+  restoreOrders,
+  useOrders,
+  vehicleName,
+} from "../../../../lib/orders";
 
 export default function OwnerOrderDetails() {
   const { id } = useParams<{ id: string }>();
@@ -35,9 +45,21 @@ export default function OwnerOrderDetails() {
     );
   }
 
+  const team = allStaff.filter((m) => m.tenantId === sub?.tenant.id);
+  const staff = team.filter((m) => m.role === "Driver" && m.status === "Active");
   const assignedName = order.assignedStaffId
-    ? (allStaff.find((m) => m.tenantId === sub?.tenant.id && m.id === order.assignedStaffId)?.name ?? "Unavailable")
+    ? (team.find((m) => m.id === order.assignedStaffId)?.name ?? "Unavailable")
     : undefined;
+
+  const assign = (staffId: string) => {
+    const member = staff.find((m) => m.id === staffId);
+    if (member) assignOrder(order.id, order.status, staffId, member.name);
+  };
+
+  const changeStatus = (next: string) => {
+    if (next === "cancelled" && !window.confirm("Cancel this booking?")) return;
+    changeOrderStatus(order.id, order.status, next);
+  };
 
   return (
     <>
@@ -46,7 +68,27 @@ export default function OwnerOrderDetails() {
         <Link href="/owner/allorders" className="btn btn-secondary">
           ← Back to orders
         </Link>
-        <OrderDetails order={order} assignedName={assignedName} />
+        <OrderDetails
+          order={order}
+          assignedName={assignedName}
+          actions={
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm">
+                <span className="muted mb-1 block text-xs">Assigned to</span>
+                <AssignStaffSelect
+                  staff={staff}
+                  value={order.assignedStaffId}
+                  disabled={isClosed(order.status)}
+                  onChange={assign}
+                />
+              </label>
+              <label className="text-sm">
+                <span className="muted mb-1 block text-xs">Move order</span>
+                <OrderStatusSelect status={order.status} onChange={changeStatus} />
+              </label>
+            </div>
+          }
+        />
       </div>
     </>
   );

@@ -13,13 +13,13 @@ import { ymd } from "../../../lib/revenue";
 import { useOwnerSubscription } from "../../../lib/ownerTenant";
 import { restoreStaff, store, useAppSelector, type StaffMember } from "../../../lib/redux-store";
 
-type Filter = "all" | "Manager" | "Driver";
+type Filter = "all" | "Manager" | "staff";
 type Credentials = { owner: string; centre: string; mobile: string; password: string; staffRole: string; reset: boolean };
 
 const tabs: { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "Manager", label: "Managers" },
-  { value: "Driver", label: "Staff / Drivers" },
+  { value: "staff", label: "Staff / Drivers" },
 ];
 
 const fmt = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -64,7 +64,7 @@ export default function MyStaff() {
     setShowForm(false);
     // Same as the admin creating an owner: a login with a temporary password that must be changed on first sign-in.
     const password = generateTempPassword();
-    await createAccount({ mobile: data.mobile, email: data.email || undefined, name: data.name, role: data.role === "Driver" ? "driver" : "manager", tenantId: tenant.id, password });
+    await createAccount({ mobile: data.mobile, email: data.email || undefined, name: data.name, role: data.role === "Driver" ? "staff" : "manager", tenantId: tenant.id, password });
     setCredentials({ owner: data.name, centre: tenant.name, mobile: data.mobile, password, staffRole: data.role === "Driver" ? "Staff (Driver)" : "Manager", reset: false });
   }
 
@@ -78,7 +78,7 @@ export default function MyStaff() {
     if (!tenant) return;
     // Replaces the login with a new temporary password; they must change it again on next sign-in.
     const password = generateTempPassword();
-    await createAccount({ mobile: m.mobile, email: m.email, name: m.name, role: m.role === "Driver" ? "driver" : "manager", tenantId: tenant.id, password });
+    await createAccount({ mobile: m.mobile, email: m.email, name: m.name, role: m.role === "Driver" ? "staff" : "manager", tenantId: tenant.id, password });
     setCredentials({ owner: m.name, centre: tenant.name, mobile: m.mobile, password, staffRole: m.role, reset: true });
   }
 

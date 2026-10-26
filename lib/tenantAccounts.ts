@@ -6,7 +6,7 @@
  * The real backend must hash passwords (bcrypt/argon2) and never trust the browser.
  */
 /** "driver" is for staff the owner adds who do not use the web workspace yet. */
-export type AccountRole = "owner" | "manager" | "driver";
+export type AccountRole = "owner" | "manager" | "staff";
 
 export type TenantAccount = {
   mobile: string;
@@ -37,7 +37,9 @@ async function hashPassword(mobile: string, password: string) {
 export function loadAccounts(): TenantAccount[] {
   try {
     const saved = JSON.parse(window.localStorage.getItem(ACCOUNTS_KEY) ?? "[]");
-    return Array.isArray(saved) ? saved : [];
+    if (!Array.isArray(saved)) return [];
+    // accounts created before "staff" existed were saved as "driver"
+    return saved.map((a) => ({ ...a, role: a.role === "driver" ? "staff" : a.role }));
   } catch {
     return [];
   }
