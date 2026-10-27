@@ -23,7 +23,7 @@ export default function OwnerNewOrderPage() {
   }, []);
 
   const staff = allStaff.filter(
-    (m) => m.tenantId === tenantId && m.role === "Driver" && m.status === "Active",
+    (m) => m.tenantId === tenantId && m.role === "staff" && m.status === "Active",
   );
 
   const submit = (d: OrderFormData) => {

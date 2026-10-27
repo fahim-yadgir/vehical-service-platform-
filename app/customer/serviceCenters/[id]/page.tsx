@@ -197,6 +197,8 @@ export default function ServiceCenterProfile() {
             <div className="flex flex-wrap gap-3">
               <a href={tel} className="btn btn-primary"><Phone size={16} /> Call {center.phone}</a>
               <a href={directions} target="_blank" rel="noreferrer" className="btn btn-secondary"><Navigation size={16} /> Get directions</a>
+              <Link href={`/customer/bookings/new?center=${center.id}`} className="btn btn-primary text-sm">Book service</Link>
+
             </div>
           </div>
         </section>

@@ -107,7 +107,7 @@ export default function ManagerStaff() {
         )}
 
         {showForm && (
-          <AddStaffForm roles={["Driver"]} existingMobiles={takenMobiles} onCreate={createStaff} onCancel={() => setShowForm(false)} />
+          <AddStaffForm roles={["staff"]} existingMobiles={takenMobiles} onCreate={createStaff} onCancel={() => setShowForm(false)} />
         )}
 
         <DataTable

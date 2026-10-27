@@ -46,7 +46,7 @@ export default function OwnerOrderDetails() {
   }
 
   const team = allStaff.filter((m) => m.tenantId === sub?.tenant.id);
-  const staff = team.filter((m) => m.role === "Driver" && m.status === "Active");
+  const staff = team.filter((m) => m.role === "staff" && m.status === "Active");
   const assignedName = order.assignedStaffId
     ? (team.find((m) => m.id === order.assignedStaffId)?.name ?? "Unavailable")
     : undefined;

@@ -13,6 +13,7 @@ import { ymd } from "../../../../lib/revenue";
 import { createAccount, removeTenantAccounts } from "../../../../lib/tenantAccounts";
 import TenantDetailsModal, { subscriptionState } from "../../../../components/admin/TenantDetailsModal";
 import { restoreStaff, store, tenantsStorageKey, useAppSelector, type Tenant, type TenantFilter } from "../../../../lib/redux-store";
+import { plans, planExpiry } from "../../../../lib/plans";
 
 const filters: { value: TenantFilter; label: string }[] = [
 	{ value: "all", label: "All tenants" },
@@ -90,13 +91,12 @@ export default function Tenants() {
 		setTenantToEdit(null);
 	}
 
-	/** New tenant: 14-day free trial, one temporary password (shown once) for the owner. */
+	/** New tenant: starts on the plan the admin chose, one temporary password (shown once) for the owner. */
 	function createTenant(data: NewTenant) {
 		const latestId = items.reduce((latest, tenant) => Math.max(latest, Number(tenant.id.replace(/\D/g, "")) || 0), 0);
 		const id = `TEN${String(latestId + 1).padStart(3, "0")}`;
 		const password = generateTempPassword();
 		const now = new Date();
-		const trialEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 14);
 		store.dispatch({
 			type: "tenants/added",
 			payload: {
@@ -106,10 +106,10 @@ export default function Tenants() {
 				mobile: data.mobile,
 				email: data.email || undefined,
 				status: "Active",
-				plan: "Free Trial",
+				plan: data.plan,
 				users: 1,
 				createdAt: ymd(now),
-				subscriptionExpiresAt: ymd(trialEnd),
+				subscriptionExpiresAt: planExpiry(data.plan, now),
 			},
 		});
 		setShowTenantForm(false);
@@ -229,12 +229,19 @@ export default function Tenants() {
 							</label>
 							<label className="block space-y-2">
 								<span className="text-sm font-bold text-slate-700">Subscription plan</span>
-								<select name="plan" required defaultValue={tenantToEdit?.plan ?? ""} className="input">
+								<select
+									name="plan"
+									required
+									defaultValue={tenantToEdit?.plan ?? ""}
+									className="input"
+									onChange={(e) => {
+										// a new plan starts today; the admin can still change the date below
+										const expiry = e.currentTarget.form?.elements.namedItem("subscriptionExpiresAt") as HTMLInputElement | null;
+										if (expiry) expiry.value = planExpiry(e.target.value, new Date());
+									}}
+								>
 									<option value="" disabled>Select a plan</option>
-									<option>Free Trial</option>
-									<option>1 Month</option>
-									<option>6 Months</option>
-									<option>1 Year</option>
+									{plans.map((p) => <option key={p.name}>{p.name}</option>)}
 								</select>
 							</label>
 							<label className="block space-y-2">
@@ -256,45 +263,45 @@ export default function Tenants() {
 					</section>
 				)}
 				<div className="min-w-0">
-						<DataTable
-							headers={["Tenant", "Owner", "Users", "Plan", "Subscription expiry", "Status", "Action"]}
-							rows={pageItems.map((tenant) => [
-								<b key="name">{tenant.name}</b>,
-								tenant.owner,
-								String(tenant.users),
-								tenant.plan,
-								new Date(`${tenant.subscriptionExpiresAt}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
-								<Badge key="status" tone={tenant.status === "Active" ? "green" : "red"}>
-									{tenant.status}
-								</Badge>,
-								<div key="actions" className="flex flex-wrap items-center gap-2">
-									<button type="button" onClick={() => setViewingId(tenant.id)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700">View</button>
-									<button type="button" onClick={() => toggleStatus(tenant)} className={`rounded-lg border px-3 py-2 text-xs font-bold ${tenant.status === "Active" ? "border-rose-200 text-rose-700 hover:bg-rose-50" : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"}`}>{tenant.status === "Active" ? "Suspend" : "Activate"}</button>
-									<button type="button" onClick={() => openTenantForm(tenant)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Manage</button>
-									<button type="button" onClick={() => deleteTenant(tenant)} aria-label={`Delete ${tenant.name}`} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50">Delete</button>
-								</div>,
-							])}
-						/>
-						{filteredItems.length === 0 && (
-							<p className="py-10 text-center text-sm text-slate-500">No tenants match this filter.</p>
-						)}
-						{pageCount > 1 && (
-							<nav className="mt-4 flex flex-wrap items-center justify-between gap-3" aria-label="Tenant pagination">
-								<p className="text-sm text-slate-500">
-									Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredItems.length)} of {filteredItems.length} tenants
-								</p>
-								<div className="flex items-center gap-2">
-									<button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1} aria-label="Previous page" className="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
-										<ChevronLeft size={18} />
-									</button>
-									<span className="min-w-20 text-center text-sm font-semibold text-slate-700" aria-live="polite">Page {currentPage} of {pageCount}</span>
-									<button type="button" onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))} disabled={currentPage === pageCount} aria-label="Next page" className="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
-										<ChevronRight size={18} />
-									</button>
-								</div>
-							</nav>
-						)}
-					</div>
+					<DataTable
+						headers={["Tenant", "Owner", "Users", "Plan", "Subscription expiry", "Status", "Action"]}
+						rows={pageItems.map((tenant) => [
+							<b key="name">{tenant.name}</b>,
+							tenant.owner,
+							String(tenant.users),
+							tenant.plan,
+							new Date(`${tenant.subscriptionExpiresAt}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+							<Badge key="status" tone={tenant.status === "Active" ? "green" : "red"}>
+								{tenant.status}
+							</Badge>,
+							<div key="actions" className="flex flex-wrap items-center gap-2">
+								<button type="button" onClick={() => setViewingId(tenant.id)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700">View</button>
+								<button type="button" onClick={() => toggleStatus(tenant)} className={`rounded-lg border px-3 py-2 text-xs font-bold ${tenant.status === "Active" ? "border-rose-200 text-rose-700 hover:bg-rose-50" : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"}`}>{tenant.status === "Active" ? "Suspend" : "Activate"}</button>
+								<button type="button" onClick={() => openTenantForm(tenant)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Manage</button>
+								<button type="button" onClick={() => deleteTenant(tenant)} aria-label={`Delete ${tenant.name}`} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50">Delete</button>
+							</div>,
+						])}
+					/>
+					{filteredItems.length === 0 && (
+						<p className="py-10 text-center text-sm text-slate-500">No tenants match this filter.</p>
+					)}
+					{pageCount > 1 && (
+						<nav className="mt-4 flex flex-wrap items-center justify-between gap-3" aria-label="Tenant pagination">
+							<p className="text-sm text-slate-500">
+								Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredItems.length)} of {filteredItems.length} tenants
+							</p>
+							<div className="flex items-center gap-2">
+								<button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1} aria-label="Previous page" className="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+									<ChevronLeft size={18} />
+								</button>
+								<span className="min-w-20 text-center text-sm font-semibold text-slate-700" aria-live="polite">Page {currentPage} of {pageCount}</span>
+								<button type="button" onClick={() => setCurrentPage((page) => Math.min(pageCount, page + 1))} disabled={currentPage === pageCount} aria-label="Next page" className="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
+									<ChevronRight size={18} />
+								</button>
+							</div>
+						</nav>
+					)}
+				</div>
 			</div>
 			{credentials && <WhatsAppCredentialsModal {...credentials} onClose={() => setCredentials(null)} />}
 			{viewing && (

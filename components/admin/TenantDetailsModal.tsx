@@ -2,15 +2,13 @@
 import Link from "next/link";
 import { X, MapPin, Phone, Clock, Star } from "lucide-react";
 import Badge from "../ui/Badge";
-import { serviceCenters } from "../../lib/serviceCenters";
 import type { Tenant } from "../../lib/redux-store";
+import { useLiveCenters } from "../../lib/liveCenters";
 
 const DAY = 24 * 60 * 60 * 1000;
 const fmt = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
-/** Customer-facing centre that belongs to this tenant (matched by name until the backend links them by id). */
-export const centerOfTenant = (t: Tenant) => serviceCenters.find((c) => c.name === t.name || c.name.startsWith(t.name));
 
 export function subscriptionState(t: Tenant) {
   const today = new Date();
@@ -28,7 +26,8 @@ type Props = {
 
 export default function TenantDetailsModal({ tenant, onClose, onToggleStatus, onManage }: Props) {
   const { left, expired } = subscriptionState(tenant);
-  const center = centerOfTenant(tenant);
+  const { centers } = useLiveCenters();
+  const center = centers.find((c) => c.id === tenant.id); 
   const isActive = tenant.status === "Active";
   const liveOnApp = isActive && !expired && !!center;
 
@@ -78,21 +77,21 @@ export default function TenantDetailsModal({ tenant, onClose, onToggleStatus, on
           ))}
         </dl>
 
-        <div className="mt-5 border-t border-slate-100 pt-4">
+              <div className="mt-5 border-t border-slate-100 pt-4">
           <p className="mb-3 text-xs font-black uppercase tracking-wider text-slate-400">Customer-facing profile</p>
           {center ? (
             <div className="space-y-2 text-sm text-slate-600">
               <p className="flex items-start gap-2"><MapPin size={15} className="mt-0.5 shrink-0 text-orange-500" />{center.address}</p>
               <p className="flex items-center gap-2"><Phone size={15} className="shrink-0 text-orange-500" />{center.phone}</p>
               <p className="flex items-center gap-2"><Clock size={15} className="shrink-0 text-orange-500" />{center.hours}</p>
-              <p className="flex items-center gap-2"><Star size={15} className="shrink-0 text-amber-500" />{center.rating.toFixed(1)} ({center.reviewCount} reviews) · {center.category}</p>
+              <p className="flex items-center gap-2"><Star size={15} className="shrink-0 text-amber-500" />New on AutoServe · {center.services.length} services listed</p>
               <p className="text-xs text-slate-500">{center.services.join(" · ")}</p>
               <Link href={`/customer/serviceCenters/${center.id}`} className="inline-block text-xs font-bold text-orange-600 hover:text-orange-700">
                 Open public profile →
               </Link>
             </div>
           ) : (
-            <p className="text-sm text-slate-500">This tenant has not set up its public service centre profile yet.</p>
+            <p className="text-sm text-slate-500">Not visible to customers yet. The owner must complete the profile (address and map pin) and the plan must be active.</p>
           )}
         </div>
 

@@ -1,6 +1,6 @@
 import type { StaffMember, Tenant } from "./redux-store";
 
-export type UserRole = "Customer" | "Owner" | "Manager" | "Driver";
+export type UserRole = "Customer" | "Owner" | "Manager" | "staff";
 export type PlatformUser = {
   id: string;
   name: string;
@@ -12,7 +12,7 @@ export type PlatformUser = {
   joined: string; // yyyy-mm-dd
 };
 
-export const roles: UserRole[] = ["Customer", "Owner", "Manager", "Driver"];
+export const roles: UserRole[] = ["Customer", "Owner", "Manager", "staff"];
 
 const first = ["Aarav", "Vihaan", "Ishaan", "Rohan", "Kunal", "Neha", "Priya", "Sneha", "Pooja", "Tanvi", "Imran", "Zoya", "Sahil", "Nikhil", "Divya", "Omkar", "Rutuja", "Yash", "Mitali", "Farhan"];
 const last = ["Patil", "Shaikh", "Kulkarni", "Deshmukh", "Jadhav", "Khan", "More", "Pawar", "Joshi", "Shinde", "Gaikwad", "Sayyed"];
@@ -47,7 +47,7 @@ export function buildUsers(tenants: Tenant[], staffList: StaffMember[] = []): Pl
         name,
         mobile: mobile(n),
         email: emailOf(name, n),
-        role: i < managers ? "Manager" : "Driver",
+        role: i < managers ? "Manager" : "staff",
         tenant: t.name,
         joined: joined(n),
       });

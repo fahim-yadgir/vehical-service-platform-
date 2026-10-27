@@ -60,3 +60,6 @@ export function useOwnerProfile(tenantId: string | undefined) {
 
   return { profile, loaded, save };
 }
+/** A centre is listed for customers only with a full address and a map pin. */
+export const isListedOnApp = (p: OwnerProfile | null) =>
+  isProfileComplete(p) && p?.lat !== undefined && p?.lng !== undefined;

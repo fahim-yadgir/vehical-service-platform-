@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { getSessionAccount } from "./tenantAccounts";
 import { getSessionRole } from "./auth";
+import { loadProfile } from "./customerProfile";
 
 export type OrderEvent = { at: string; by: string; role: string; text: string };
 export type Actor = { name: string; role: string; at: string };
@@ -24,7 +25,11 @@ export type Order = {
   supervisedBy?: string;
   completedBy?: Actor;
   history: OrderEvent[];
-  pickup?: Pickup;   // inside type Order, e.g. after `notes?: string;`
+  pickup?: Pickup;
+  source?: "customer" | "centre";
+  pickupOtp?: string;     // staff sees it; the customer types it
+  deliveryOtp?: string;   // the customer sees it; staff types it
+  otpAttempts?: number;   // inside type Order, e.g. after `notes?: string;`
 };
 
 
@@ -94,12 +99,16 @@ export function useOrders() {
 // ---- who is acting ----
 function actor(): Actor {
   const a = getSessionAccount();
-  // demo logins have no saved account, so fall back to the role picked on the login page
   const role = a?.role ?? getSessionRole() ?? "unknown";
-  const fallbackName = role === "owner" ? "Owner" : role === "manager" ? "Manager" : "Unknown";
+  const fallbackName =
+    role === "owner" ? "Owner" : role === "manager" ? "Manager" : role === "customer" ? loadProfile().fullName : "Unknown";
   return { name: a?.name ?? fallbackName, role, at: new Date().toISOString() };
 }
-
+/** 4-digit OTP. DEMO ONLY: the backend must generate and store it (hashed, with an expiry). */
+function makeOtp() {
+  const n = crypto.getRandomValues(new Uint32Array(1))[0] % 10000;
+  return String(n).padStart(4, "0");
+}
 function patchOrder(
   id: string,
   change: (o: Order, who: Actor) => Partial<Order>,
@@ -125,7 +134,12 @@ function patchOrder(
 export function changeOrderStatus(id: string, from: string, to: string) {
   patchOrder(
     id,
-    (_o, who) => ({ status: to, ...(to === "completed" ? { completedBy: who } : {}) }),
+    (_o, who) => ({
+      status: to,
+      ...(to === "completed" ? { completedBy: who } : {}),
+      // the customer gets a delivery OTP when the vehicle is ready
+      ...(to === "ready_for_delivery" ? { deliveryOtp: makeOtp(), otpAttempts: 0 } : {}),
+    }),
     `Status changed: ${statusLabel(from)} → ${statusLabel(to)}`,
   );
 }
@@ -137,6 +151,8 @@ export function assignOrder(id: string, status: string, staffId: string, staffNa
       assignedStaffId: staffId,
       // assigning a pending order moves it forward
       ...(status === "pending" ? { status: "driver_assigned" } : {}),
+      // a new person gets a fresh pickup OTP; the old one stops working
+      ...(status === "pending" || status === "driver_assigned" ? { pickupOtp: makeOtp(), otpAttempts: 0 } : {}),
     }),
     `Assigned to ${staffName}`,
   );
@@ -151,7 +167,8 @@ export type NewOrder = {
   amount: number;
   notes?: string;
   assignedStaff?: { id: string; name: string };
-  pickup?: Pickup;   // inside type Order, e.g. after `notes?: string;`
+  pickup?: Pickup; 
+  source?: "customer" | "centre";  // inside type Order, e.g. after `notes?: string;`
 };
 
 export function createOrder(input: NewOrder): string {
@@ -177,6 +194,8 @@ export function createOrder(input: NewOrder): string {
     supervisedBy: who.role === "manager" ? who.name : undefined,
     history,
     pickup: input.pickup,
+    source: input.source ?? "centre",
+    pickupOtp: input.assignedStaff ? makeOtp() : undefined,
   };
   state = [order, ...state];
   persist();
@@ -213,11 +232,15 @@ export const orderStages = [
 export const isClosed = (s: string) => s === "completed" || s === "cancelled";
 
 /** The manager can move an order one step forward, or cancel it. */
+/** Steps that only happen by staff assignment or by an OTP match, never by hand. */
+const guarded = ["driver_assigned", "pickup_otp_verified", "delivery_otp_verified"];
+
+/** The owner/manager can move an order one step forward, or cancel it. */
 export function nextStatuses(current: string): string[] {
   if (isClosed(current)) return [];
   const i = statusFlow.indexOf(current);
-  const next = i >= 0 && i < statusFlow.length - 1 ? [statusFlow[i + 1]] : [];
-  return [...next, "cancelled"];
+  const next = i >= 0 && i < statusFlow.length - 1 ? statusFlow[i + 1] : undefined;
+  return [...(next && !guarded.includes(next) ? [next] : []), "cancelled"];
 }
 
 export const statusLabel = (s: string) => s.replaceAll("_", " ");
@@ -250,3 +273,41 @@ export const formatOrderTime = (iso?: string) =>
     /** Orders of one service centre (the demo seed orders belong to every centre). */
 export const forTenant = (orders: Order[], tenantId?: string) =>
   orders.filter((o) => !o.tenantId || o.tenantId === tenantId);
+// ---- OTP handover ----
+export type OtpResult = { ok: true } | { ok: false; error: string };
+const MAX_ATTEMPTS = 5;
+
+function verifyOtp(id: string, kind: "pickup" | "delivery", code: string): OtpResult {
+  const o = state.find((x) => x.id === id);
+  if (!o) return { ok: false, error: "Order not found." };
+  const waitingFor = kind === "pickup" ? "driver_assigned" : "ready_for_delivery";
+  const otp = kind === "pickup" ? o.pickupOtp : o.deliveryOtp;
+  if (o.status !== waitingFor || !otp) return { ok: false, error: "No OTP is needed right now." };
+
+  const used = o.otpAttempts ?? 0;
+  if (used >= MAX_ATTEMPTS) return { ok: false, error: "Too many wrong attempts. Please contact the service centre." };
+
+  if (code.trim() !== otp) {
+    state = state.map((x) => (x.id === id ? { ...x, otpAttempts: used + 1 } : x));
+    persist();
+    emit();
+    const left = MAX_ATTEMPTS - (used + 1);
+    return { ok: false, error: left > 0 ? `Wrong OTP. ${left} attempt${left === 1 ? "" : "s"} left.` : "Too many wrong attempts. Please contact the service centre." };
+  }
+
+  patchOrder(
+    id,
+    () => ({
+      status: kind === "pickup" ? "pickup_otp_verified" : "delivery_otp_verified",
+      otpAttempts: 0,
+      ...(kind === "pickup" ? { pickupOtp: undefined } : { deliveryOtp: undefined }), // single use
+    }),
+    kind === "pickup" ? "Pickup OTP verified by customer: vehicle handed to staff" : "Delivery OTP verified by staff: vehicle handed to customer",
+  );
+  return { ok: true };
+}
+
+/** The customer types the OTP the staff member tells them. */
+export const verifyPickupOtp = (id: string, code: string) => verifyOtp(id, "pickup", code);
+/** The staff member types the OTP the customer tells them. */
+export const verifyDeliveryOtp = (id: string, code: string) => verifyOtp(id, "delivery", code);

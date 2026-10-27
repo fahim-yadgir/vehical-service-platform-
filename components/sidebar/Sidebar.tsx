@@ -31,6 +31,7 @@ const menus: Record<Role, Array<[string, string, LucideIcon]>> = {
   customer: [
     ["Dashboard", "/customer/dashboard", LayoutDashboard],
     ["Service Centers", "/customer/serviceCenters", Store],
+    ["Bookings", "/customer/bookings", CalendarDays],
     ["Vehicles", "/customer/vehicles", Car],
     ["Profile", "/customer/profile", User],
   ],
@@ -55,6 +56,7 @@ const menus: Record<Role, Array<[string, string, LucideIcon]>> = {
     ["Tenants", "/admin/tenants", Building2],
     ["Users", "/admin/users", Users],
     ["Revenue", "/admin/revenue", BarChart3],
+    ["Plans", "/admin/plans", CreditCard],
     ["Profile", "/admin/profile", User],
   ],
     staff: [

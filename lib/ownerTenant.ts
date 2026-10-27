@@ -90,7 +90,7 @@ export function resolveStaffLogin(identifier: string): { tenantId: string; error
   restoreStaff();
   const id = identifier.trim().toLowerCase();
   const member = store.getState().staff.find((m) => m.mobile === id || m.email?.toLowerCase() === id);
-  if (!member || member.role !== "Driver") {
+  if (!member || member.role !== "staff") {
     return { error: "No staff account found. Ask your service centre to add you from My Staff." };
   }
   let blocked: string[] = [];

@@ -34,7 +34,7 @@ export default function ManagerBookings() {
   const orders = allOrders.filter((o) => !o.tenantId || o.tenantId === sub?.tenant.id);
   // only active staff of this manager's own service centre
   const staff = allStaff.filter(
-    (m) => m.tenantId === sub?.tenant.id && m.role === "Driver" && m.status === "Active",
+    (m) => m.tenantId === sub?.tenant.id && m.role === "staff" && m.status === "Active",
   );
 
   const changeStatus = (id: string, from: string, to: string) => {

@@ -21,7 +21,7 @@ export function useStaffWorkspace() {
     setReady(true);
   }, []);
 
-  const me = mobile ? allStaff.find((m) => m.mobile === mobile && m.role === "Driver") : undefined;
+  const me = mobile ? allStaff.find((m) => m.mobile === mobile && m.role === "staff") : undefined;
   const tenant = me ? tenants.find((t) => t.id === me.tenantId) : undefined;
 
   // the filter that keeps every other order hidden from this person

@@ -15,7 +15,7 @@ const centerIcon = (rating: number, selected: boolean) =>
     iconAnchor: [29, 30],
     html: `<div style="display:flex;align-items:center;justify-content:center;width:58px;height:30px;border-radius:15px;font:800 13px system-ui;color:#fff;background:${
       selected ? "#ea580c" : "#0f172a"
-    };border:2px solid #fff;box-shadow:0 4px 12px rgba(15,23,42,.35)">★ ${rating.toFixed(1)}</div>`,
+    };border:2px solid #fff;box-shadow:0 4px 12px rgba(15,23,42,.35)">${rating > 0 ? `★ ${rating.toFixed(1)}` : "New"}</div>`,
   });
 
 const userIcon = L.divIcon({

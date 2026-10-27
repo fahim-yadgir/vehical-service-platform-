@@ -1,4 +1,5 @@
 import type { Tenant } from "./redux-store";
+import { planMonthsOf, planPriceOf } from "./plans";
 
 /** Platform revenue = subscription payments made by tenants. */
 export type Payment = {
@@ -21,19 +22,6 @@ export type Preset =
 export type Range = {
   from: string;
   to: string;
-};
-
-export const planPrice: Record<string, number> = {
-  "Free Trial": 0,
-  "1 Month": 2999,
-  "6 Months": 14999,
-  "1 Year": 26999,
-};
-
-const planMonths: Record<string, number> = {
-  "1 Month": 1,
-  "6 Months": 6,
-  "1 Year": 12,
 };
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -103,12 +91,12 @@ export function buildPayments(
   const out: Payment[] = [];
 
   tenants.forEach((t) => {
-    const price = planPrice[t.plan] ?? 0;
+    const price = planPriceOf(t.plan);
 
     // Free trial: nothing is billed.
     if (price === 0) return;
 
-    const step = planMonths[t.plan] ?? 1;
+    const step = planMonthsOf(t.plan);
 
     for (let k = 0; k < 120; k++) {
       const date = addMonths(t.createdAt, k * step);

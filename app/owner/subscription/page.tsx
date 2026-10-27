@@ -6,12 +6,14 @@ import Topbar from "../../../components/navbar/Topbar";
 import Button from "../../../components/ui/Button";
 import Badge from "../../../components/ui/Badge";
 import { TRIAL_DAYS, useOwnerSubscription } from "../../../lib/ownerTenant";
+import { plans, planPriceOf, usePlanPrices } from "../../../lib/plans";
 
 const fmt = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
 
 export default function OwnerSubscription() {
   const [requested, setRequested] = useState(false);
-  // The plan comes from the tenant the admin created: a new centre starts on a 14-day free trial.
+  const { prices } = usePlanPrices();
+  // The plan comes from the tenant the admin created.
   const sub = useOwnerSubscription();
 
   const badge = !sub
@@ -30,7 +32,7 @@ export default function OwnerSubscription() {
   return (
     <>
       <Topbar title="Subscription" subtitle="Plan, usage and renewal controls" />
-      <div className="container">
+      <div className="container space-y-5">
         <div className="card glow max-w-2xl overflow-hidden">
           <div className="bg-slate-950 p-7 text-white">
             <div className="flex items-center justify-between">
@@ -74,6 +76,30 @@ export default function OwnerSubscription() {
             </div>
           </div>
         </div>
+
+        <section className="card max-w-2xl p-6">
+          <h3 className="font-black text-slate-900">Plans</h3>
+          <ul className="mt-3 divide-y divide-slate-100 text-sm">
+            {plans.map((p) => {
+              const price = planPriceOf(p.name, prices);
+              const current = sub?.tenant.plan === p.name;
+              return (
+                <li key={p.name} className="flex items-center justify-between py-3">
+                  <span className={current ? "font-black text-orange-600" : "font-semibold"}>
+                    {p.name}{current ? " (current)" : ""}
+                  </span>
+                  <b>
+                    {p.months === 0
+                      ? `Free · ${p.days} days`
+                      : price > 0
+                        ? `₹${price.toLocaleString("en-IN")}`
+                        : "Price not set yet"}
+                  </b>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       </div>
     </>
   );

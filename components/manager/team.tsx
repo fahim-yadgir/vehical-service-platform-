@@ -29,7 +29,7 @@ export default function Team() {
               <article key={m.id} className="card p-5 transition hover:-translate-y-1 hover:shadow-lg">
                 <div className="grid size-12 place-items-center rounded-2xl bg-slate-950 text-orange-400"><Users /></div>
                 <h3 className="mt-5 font-black">{m.name}</h3>
-                <p className="muted mt-1 text-sm">{m.role === "Driver" ? "Staff / Driver" : "Manager"}</p>
+                <p className="muted mt-1 text-sm">{m.role === "staff" ? "Staff / Driver" : "Manager"}</p>
                 <p className="muted mt-1 text-xs">{m.mobile}</p>
                 <div className="mt-5">
                   <Badge tone={m.status === "Active" ? "green" : "red"}>{m.status}</Badge>

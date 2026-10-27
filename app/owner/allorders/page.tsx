@@ -51,7 +51,7 @@ export default function OwnerOrders() {
 
   const team = allStaff.filter((m) => m.tenantId === tenantId);
   // only active drivers of this owner's own service centre can be assigned
-  const assignable = team.filter((m) => m.role === "Driver" && m.status === "Active");
+  const assignable = team.filter((m) => m.role === "staff" && m.status === "Active");
   const staffName = (id?: string) =>
     id ? (team.find((m) => m.id === id)?.name ?? "Unavailable") : "—";
 
@@ -199,7 +199,7 @@ export default function OwnerOrders() {
             headers={["Person", "Role", "Open orders", "Completed"]}
             rows={activity.map(({ m, open, done }) => [
               <b key="n">{m.name}</b>,
-              m.role === "Driver" ? "Staff / Driver" : "Manager",
+              m.role === "staff" ? "Staff / Driver" : "Manager",
               String(open),
               String(done),
             ])}

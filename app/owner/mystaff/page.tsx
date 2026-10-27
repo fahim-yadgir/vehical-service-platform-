@@ -64,8 +64,8 @@ export default function MyStaff() {
     setShowForm(false);
     // Same as the admin creating an owner: a login with a temporary password that must be changed on first sign-in.
     const password = generateTempPassword();
-    await createAccount({ mobile: data.mobile, email: data.email || undefined, name: data.name, role: data.role === "Driver" ? "staff" : "manager", tenantId: tenant.id, password });
-    setCredentials({ owner: data.name, centre: tenant.name, mobile: data.mobile, password, staffRole: data.role === "Driver" ? "Staff (Driver)" : "Manager", reset: false });
+    await createAccount({ mobile: data.mobile, email: data.email || undefined, name: data.name, role: data.role === "staff" ? "staff" : "manager", tenantId: tenant.id, password });
+    setCredentials({ owner: data.name, centre: tenant.name, mobile: data.mobile, password, staffRole: data.role === "staff" ? "Staff (Driver)" : "Manager", reset: false });
   }
 
   function toggleStatus(m: StaffMember) {
@@ -78,7 +78,7 @@ export default function MyStaff() {
     if (!tenant) return;
     // Replaces the login with a new temporary password; they must change it again on next sign-in.
     const password = generateTempPassword();
-    await createAccount({ mobile: m.mobile, email: m.email, name: m.name, role: m.role === "Driver" ? "staff" : "manager", tenantId: tenant.id, password });
+    await createAccount({ mobile: m.mobile, email: m.email, name: m.name, role: m.role === "staff" ? "staff" : "manager", tenantId: tenant.id, password });
     setCredentials({ owner: m.name, centre: tenant.name, mobile: m.mobile, password, staffRole: m.role, reset: true });
   }
 
@@ -126,7 +126,7 @@ export default function MyStaff() {
           headers={["Name", "Role", "Mobile", "Joined", "Status", "Action"]}
           rows={shown.map((m) => [
             <b key="n">{m.name}</b>,
-            m.role === "Driver" ? "Staff / Driver" : "Manager",
+            m.role === "staff" ? "Staff / Driver" : "Manager",
             m.mobile,
             fmt(m.createdAt),
             <Badge key="s" tone={m.status === "Active" ? "green" : "red"}>{m.status}</Badge>,

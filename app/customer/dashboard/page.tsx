@@ -8,10 +8,10 @@ import Badge from "../../../components/ui/Badge";
 import SectionHeading from "../../../components/ui/SectionHeading";
 import { bookings } from "../../../lib/mock-data";
 import { bookingsForVehicle, useVehicles, vehicleName } from "../../../lib/customerVehicles";
-import { serviceCenters } from "../../../lib/serviceCenters";
 import { distanceKm, formatKm } from "../../../lib/geo";
 import { defaultProfile, loadProfile } from "../../../lib/customerProfile";
 import { DEFAULT_LOCATION, loadLocation } from "../../../lib/customerLocation";
+import { useLiveCenters } from "../../../lib/liveCenters";
 
 import {
   Clock,
@@ -45,12 +45,10 @@ export default function DashboardPage() {
   }, []);
 
   // Same data as the Service Centers pages, sorted by distance from the saved location.
+    const { centers: live } = useLiveCenters();
   const centers = useMemo(
-    () =>
-      serviceCenters
-        .map((c) => ({ ...c, km: distanceKm(location, c.location) }))
-        .sort((a, z) => a.km - z.km),
-    [location]
+    () => live.map((c) => ({ ...c, km: distanceKm(location, c.location) })).sort((a, z) => a.km - z.km),
+    [live, location]
   );
   const nearby = centers.slice(0, 4);
   const topRated = [...centers].sort((a, z) => z.rating - a.rating).slice(0, 3);
@@ -65,8 +63,8 @@ export default function DashboardPage() {
     0
   );
   const b = vehicleBookings.find((x) => x.status !== "completed");
-  const bCenter = b && serviceCenters.find((c) => c.name === b.centre);
-  const historyHref = vehicle ? `/customer/vehicles/${vehicle.id}/history` : "/customer/vehicles";
+  const bCenter = b && live.find((c) => c.name === b.centre);
+    const historyHref = vehicle ? `/customer/vehicles/${vehicle.id}/history` : "/customer/vehicles";
   const findCenters = (service?: string) =>
     service ? `/customer/serviceCenters?service=${encodeURIComponent(service)}` : "/customer/serviceCenters";
 
@@ -381,8 +379,8 @@ export default function DashboardPage() {
                     <Star size={15} fill="currentColor" />
                     {c.rating.toFixed(1)}
                   </span>
-                  <span className="muted">({c.reviewCount} reviews)</span>
-                  <span className="muted">· {formatKm(c.km)}</span>
+                  <span className="muted">({c.rating > 0 ? c.rating.toFixed(1) : "New"} reviews)</span>
+                  <span className="muted">· {c.reviewCount > 0 && <span className="muted">({c.reviewCount} reviews)</span>}</span>
                 </div>
 
                 <p className="mt-4 text-sm text-slate-500">{c.services.slice(0, 3).join(" · ")}</p>
@@ -483,7 +481,7 @@ export default function DashboardPage() {
 
                 <span className="flex items-center gap-1 text-xs font-bold text-amber-500">
                   <Star size={13} fill="currentColor" />
-                  {c.rating.toFixed(1)}
+                  {c.rating > 0 ? c.rating.toFixed(1) : "New"}          
                 </span>
               </Link>
             ))}

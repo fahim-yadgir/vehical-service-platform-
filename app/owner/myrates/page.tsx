@@ -8,8 +8,9 @@ import Badge from "../../../components/ui/Badge";
 import RateForm from "../../../components/owner/RateForm";
 import CenterCharges, { type ChargeRow } from "../../../components/customer/CenterCharges";
 import { useOwnerSubscription } from "../../../lib/ownerTenant";
-import { serviceCenters, serviceOptions } from "../../../lib/serviceCenters";
 import type { VehicleKind } from "../../../lib/serviceCenterProfiles";
+import { serviceOptions } from "../../../lib/serviceCenters";
+import { useLiveCenters } from "../../../lib/liveCenters";
 import { centerIdForTenant, emptyRates, facilitySuggestions, rateAppliesTo, rateLabel, useOwnerRates, vehicleLabel, type RateItem, type RateVehicle } from "../../../lib/ownerRates";
 
 type Group = "services" | "facilities";
@@ -59,8 +60,9 @@ export default function MyRates() {
     setNotice(`${rate.name} (${vehicleLabel[rate.vehicle]}) deleted.`);
   }
 
-  const centerId = tenant ? centerIdForTenant(tenant.id) : "";
-  const onCustomerList = serviceCenters.some((c) => c.id === centerId);
+  const centerId = tenant?.id ?? "";
+  const { centers: liveCenters } = useLiveCenters();
+  const onCustomerList = liveCenters.some((c) => c.id === centerId);
 
   /** Rows exactly as the customer page lists them for the chosen vehicle type. */
   const preview = (group: Group): ChargeRow[] =>
