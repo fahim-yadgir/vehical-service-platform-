@@ -10,7 +10,7 @@ import { CheckCircle2, LogOut } from "lucide-react";
 import { clearOwnerTenantId, useOwnerSubscription } from "../../../lib/ownerTenant";
 import { clearSession } from "../../../lib/auth";
 import { changePassword, getSessionAccount, verifyPassword } from "../../../lib/tenantAccounts";
-import { emptyProfile, isProfileComplete, useOwnerProfile, type OwnerProfile } from "../../../lib/ownerProfile";
+import { emptyProfile, isListedOnApp, isProfileComplete, useOwnerProfile, type OwnerProfile } from "../../../lib/ownerProfile";
 import { isEmail, isGst, isPincode } from "../../../lib/validators";
 
 type Errors = Partial<Record<keyof OwnerProfile, string>>;
@@ -108,6 +108,7 @@ export default function OwnerProfilePage() {
     if (!form.city.trim()) next.city = "Enter the city.";
     if (!form.state.trim()) next.state = "Enter the state.";
     if (!isPincode(form.pincode)) next.pincode = "Enter a valid 6-digit pincode.";
+    if (form.lat === undefined || form.lng === undefined) next.lat = "Pin your centre on the map. Customers cannot find you without it.";
     setErrors(next);
     if (Object.keys(next).length) return;
     save({ ...form, email: form.email.trim(), address: form.address.trim(), city: form.city.trim(), state: form.state.trim() });
@@ -143,9 +144,11 @@ export default function OwnerProfilePage() {
       <Topbar title="Profile" subtitle="Your service centre details" />
       {/* Opens on its own after the first login with a temporary password. */}
       <div className="container space-y-5">
-        {loaded && !complete && (
+        {loaded && !isListedOnApp(profile) && (
           <div role="status" className="max-w-3xl rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-800">
-            Complete your centre profile (address and GST number) so customers can find and trust your service centre.
+            {complete
+              ? "Your centre is hidden from customers. Pin your location on the map and save to go live."
+              : "Complete your centre profile (address and map location) so customers can find your service centre."}
           </div>
         )}
         {saved && (
@@ -184,8 +187,9 @@ export default function OwnerProfilePage() {
               {field("pincode", "Pincode", { inputMode: "numeric", placeholder: "411014" })}
             </div>
             <div className="space-y-2">
-              <span className="text-sm font-bold text-slate-700">Pin your location on the map (optional)</span>
+              <span className="text-sm font-bold text-slate-700">Pin your location on the map *</span>
               <LocationPicker value={location} onChange={setLocation} height={260} />
+              {errors.lat && <span role="alert" className="block text-xs font-semibold text-rose-600">{errors.lat}</span>}
             </div>
           </section>
 

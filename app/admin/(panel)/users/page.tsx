@@ -7,6 +7,7 @@ import DataTable from "../../../../components/tables/DataTable";
 import Badge from "../../../../components/ui/Badge";
 import UserDetailsModal from "../../../../components/admin/UserDetailsModal";
 import { restoreStaff, restoreTenants, useAppSelector } from "../../../../lib/redux-store";
+import { loadAccounts, type TenantAccount } from "../../../../lib/tenantAccounts";
 import { buildUsers, roles, type PlatformUser, type UserRole } from "../../../../lib/mockUsers";
 
 const BLOCKED_KEY = "vehicle-service-platform.blockedUsers";
@@ -15,7 +16,8 @@ const PAGE_SIZE = 10;
 export default function Users() {
   const tenants = useAppSelector((state) => state.tenants);
   const staff = useAppSelector((state) => state.staff);
-  const users = useMemo(() => buildUsers(tenants, staff), [tenants, staff]);
+  const [customers, setCustomers] = useState<TenantAccount[]>([]);
+  const users = useMemo(() => buildUsers(tenants, staff, customers), [tenants, staff, customers]);
 
   const [blocked, setBlocked] = useState<string[]>([]);
   const [role, setRole] = useState<UserRole | "all">("all");
@@ -27,6 +29,7 @@ export default function Users() {
   useEffect(() => {
     restoreTenants();
     restoreStaff();
+    setCustomers(loadAccounts().filter((a) => a.role === "customer"));
     try {
       const saved = JSON.parse(window.localStorage.getItem(BLOCKED_KEY) ?? "[]");
       if (Array.isArray(saved)) setBlocked(saved);
@@ -70,7 +73,7 @@ export default function Users() {
         <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-1.5">
             {tab("all", "All")}
-            {roles.map((r) => tab(r, r === "Customer" ? "Customers" : `${r}s`))}
+            {roles.map((r) => tab(r, r === "Customer" ? "Customers" : r === "Staff" ? "Staff" : `${r}s`))}
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <label className="relative block">

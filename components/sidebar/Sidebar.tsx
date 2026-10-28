@@ -28,10 +28,10 @@ import { clearSession, roleLabels, type Role } from "../../lib/auth";
 import { useSidebar } from "../layout/SidebarContext";
 
 const menus: Record<Role, Array<[string, string, LucideIcon]>> = {
-  customer: [
+    customer: [
     ["Dashboard", "/customer/dashboard", LayoutDashboard],
     ["Service Centers", "/customer/serviceCenters", Store],
-    ["Bookings", "/customer/bookings", CalendarDays],
+    ["My Bookings", "/customer/bookings", CalendarDays],
     ["Vehicles", "/customer/vehicles", Car],
     ["Profile", "/customer/profile", User],
   ],

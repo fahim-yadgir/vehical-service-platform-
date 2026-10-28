@@ -5,8 +5,8 @@
  * "temporary password -> forced change" flow can be tried without a backend.
  * The real backend must hash passwords (bcrypt/argon2) and never trust the browser.
  */
-/** "driver" is for staff the owner adds who do not use the web workspace yet. */
-export type AccountRole = "owner" | "manager" | "staff";
+/** "staff" does pickup and delivery. "customer" registers on the public side and has no tenant. */
+export type AccountRole = "owner" | "manager" | "staff" | "customer";
 
 export type TenantAccount = {
   mobile: string;
@@ -16,6 +16,7 @@ export type TenantAccount = {
   tenantId: string;
   hash: string;
   mustChangePassword: boolean;
+  createdAt?: string;
 };
 
 const ACCOUNTS_KEY = "vehicle-service-platform.accounts";
@@ -37,9 +38,8 @@ async function hashPassword(mobile: string, password: string) {
 export function loadAccounts(): TenantAccount[] {
   try {
     const saved = JSON.parse(window.localStorage.getItem(ACCOUNTS_KEY) ?? "[]");
-    if (!Array.isArray(saved)) return [];
-    // accounts created before "staff" existed were saved as "driver"
-    return saved.map((a) => ({ ...a, role: a.role === "driver" ? "staff" : a.role }));
+    // accounts saved before the staff rename used the role "driver"
+    return Array.isArray(saved) ? saved.map((a) => (a.role === "driver" ? { ...a, role: "staff" } : a)) : [];
   } catch {
     return [];
   }
@@ -51,10 +51,15 @@ function saveAccounts(accounts: TenantAccount[]) {
   } catch {}
 }
 
-/** Creates (or replaces) the login for a mobile number with a temporary password. */
-export async function createAccount(a: Omit<TenantAccount, "hash" | "mustChangePassword"> & { password: string }) {
-  const { password, ...rest } = a;
-  const account: TenantAccount = { ...rest, hash: await hashPassword(a.mobile, password), mustChangePassword: true };
+/** Creates (or replaces) the login for a mobile number. Staff and owners start with a temporary password; customers choose their own. */
+export async function createAccount(a: Omit<TenantAccount, "hash" | "mustChangePassword"> & { password: string; mustChangePassword?: boolean }) {
+  const { password, mustChangePassword = true, ...rest } = a;
+  const account: TenantAccount = {
+    ...rest,
+    createdAt: rest.createdAt ?? new Date().toISOString().slice(0, 10),
+    hash: await hashPassword(a.mobile, password),
+    mustChangePassword,
+  };
   saveAccounts([...loadAccounts().filter((x) => x.mobile !== a.mobile), account]);
 }
 
@@ -106,4 +111,18 @@ export function getSessionAccount() {
 /** Changes the name and email on one login. The mobile stays: it is the login. */
 export function updateAccountProfile(mobile: string, changes: { name: string; email?: string }) {
   saveAccounts(loadAccounts().map((a) => (a.mobile === mobile ? { ...a, ...changes } : a)));
+}
+
+const BLOCKED_USERS_KEY = "vehicle-service-platform.blockedUsers";
+
+/** Same id the admin Users page uses, so Block there stops the login here. */
+export const customerUserId = (mobile: string) => `CUS-${mobile}`;
+
+export function isCustomerBlocked(mobile: string) {
+  try {
+    const saved: unknown = JSON.parse(window.localStorage.getItem(BLOCKED_USERS_KEY) ?? "[]");
+    return Array.isArray(saved) && saved.includes(customerUserId(mobile));
+  } catch {
+    return false;
+  }
 }

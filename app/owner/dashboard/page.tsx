@@ -7,6 +7,7 @@ import KpiCard from "../../../components/cards/KpiCard";
 import SectionHeading from "../../../components/ui/SectionHeading";
 import RevenueChart from "../../../components/charts/RevenueChart";
 import { useOwnerSubscription } from "../../../lib/ownerTenant";
+import ListingBanner from "../../../components/owner/ListingBanner";
 import {
   forTenant,
   isClosed,
@@ -32,7 +33,7 @@ export default function OwnerDashboard() {
   return (
     <>
       <Topbar title="Owner Dashboard" subtitle="Business performance across your service centre" />
-
+<ListingBanner/>
       <div className="container space-y-7">
         <div className="grid-auto">
           <KpiCard icon="rupee" label="Revenue (completed orders)" value={money(revenue)} />

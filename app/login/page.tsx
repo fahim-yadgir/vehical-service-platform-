@@ -10,7 +10,7 @@ import PasswordInput from "../../components/ui/PasswordInput";
 import Button from "../../components/ui/Button";
 
 import { roleLabels, roleRoutes, saveSession, type Role } from "../../lib/auth";
-import { clearAccountSession, findAccount, saveAccountSession, verifyPassword } from "../../lib/tenantAccounts";
+import { clearAccountSession, findAccount, isCustomerBlocked, saveAccountSession, verifyPassword } from "../../lib/tenantAccounts";
 import { resolveManagerLogin, resolveOwnerTenantId, resolveStaffLogin, saveOwnerTenantId } from "../../lib/ownerTenant";
 import { isMobileOrEmail } from "../../lib/validators";
 
@@ -61,6 +61,20 @@ export default function Login() {
     if (account && !(await verifyPassword(account, password))) {
       setLoading(false);
       setError("Incorrect mobile number or password.");
+      return;
+    }
+
+    // Customers must register first; there is no demo customer any more.
+    if (role === "customer" && !account) {
+      setLoading(false);
+      setError("No account found for this number. Please create an account first.");
+      return;
+    }
+
+    // Admin can block a customer from the Users page.
+    if (account?.role === "customer" && isCustomerBlocked(account.mobile)) {
+      setLoading(false);
+      setError("This account has been blocked. Please contact AutoServe support.");
       return;
     }
 

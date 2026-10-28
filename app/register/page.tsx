@@ -10,9 +10,12 @@ import PasswordInput from "../../components/ui/PasswordInput";
 import Button from "../../components/ui/Button";
 import LocationPicker, { type PickedLocation } from "../../components/map/LocationPicker";
 import { isEmail, isMobile } from "../../lib/validators";
+import { createAccount } from "../../lib/tenantAccounts";
+import { createCustomerProfile } from "../../lib/customerProfile";
+import { saveLocationFor } from "../../lib/customerLocation";
+import { isMobileRegistered } from "../../lib/mobileRegistry";
 
-const addressLabels = ["Home", "Office", "Other"] as const;
-const stepTitles = ["Your details", "Your address", "Verify mobile"];
+const stepTitles = ["Your details", "Your address"];
 
 export default function Register() {
   const router = useRouter();
@@ -32,16 +35,14 @@ export default function Register() {
   // Address
   const [location, setLocation] = useState<PickedLocation | null>(null);
   const [house, setHouse] = useState("");
-  const [label, setLabel] = useState<(typeof addressLabels)[number]>("Home");
-  // OTP
-  const [otp, setOtp] = useState("");
 
-  function next(e: React.FormEvent) {
+  async function next(e: React.FormEvent) {
     e.preventDefault();
 
     if (step === 1) {
       if (name.trim().length < 2) return setError("Enter your full name.");
       if (!isMobile(mobile)) return setError("Enter a valid 10-digit mobile number.");
+      if (isMobileRegistered(mobile)) return setError("This mobile number is already registered. Please sign in.");
       if (password.length < 6) return setError("Password must be at least 6 characters.");
       if (email && !isEmail(email)) return setError("Enter a valid email address or leave it empty.");
       if (age && (Number(age) < 14 || Number(age) > 100)) return setError("Enter a valid age.");
@@ -50,24 +51,29 @@ export default function Register() {
       return;
     }
 
-    if (step === 2) {
-      if (!location || location.address === "Finding address...") {
-        return setError("Select your address on the map.");
-      }
-      if (house.trim().length < 2) return setError("Enter your house / flat / building details.");
-      setError("");
-      setStep(3);
-      return;
+    // Step 2: address, then the account is created straight away
+    if (!location || location.address === "Finding address...") {
+      return setError("Select your address on the map.");
     }
+    if (house.trim().length < 2) return setError("Enter your house / flat / building details.");
+    if (isMobileRegistered(mobile)) return setError("This mobile number is already registered. Please sign in.");
 
-    if (otp.length !== 6) return setError("Enter the 6-digit OTP.");
     setError("");
     setLoading(true);
-    // Demo only: the backend will verify the OTP and create the account.
-    setTimeout(() => {
-      setLoading(false);
-      setDone(true);
-    }, 700);
+    // Demo only: the account and profile are saved in this browser. The backend will do this later.
+    await createAccount({
+      mobile,
+      email: email.trim() || undefined,
+      name: name.trim(),
+      role: "customer",
+      tenantId: "",
+      password,
+      mustChangePassword: false,
+    });
+    createCustomerProfile({ fullName: name.trim(), mobile, email: email.trim(), age, gender, address: house.trim() });
+    saveLocationFor(mobile, location);
+    setLoading(false);
+    setDone(true);
   }
 
   return (
@@ -109,12 +115,12 @@ export default function Register() {
                   </button>
                 )}
                 <span className="text-xs font-black uppercase tracking-widest text-orange-500">
-                  Step {step} / 3 · {stepTitles[step - 1]}
+                  Step {step} / 2 · {stepTitles[step - 1]}
                 </span>
               </div>
 
               <div className="mt-5 flex gap-2" aria-hidden>
-                {[1, 2, 3].map((n) => (
+                {[1, 2].map((n) => (
                   <span
                     key={n}
                     className={`h-1.5 flex-1 rounded-full ${n <= step ? "bg-orange-500" : "bg-slate-200"}`}
@@ -207,46 +213,6 @@ export default function Register() {
                       value={house}
                       onChange={(e) => setHouse(e.target.value)}
                     />
-
-                    <div className="space-y-2">
-                      <span className="text-sm font-bold text-slate-700">Save as</span>
-                      <div className="flex gap-2">
-                        {addressLabels.map((item) => (
-                          <button
-                            key={item}
-                            type="button"
-                            aria-pressed={label === item}
-                            onClick={() => setLabel(item)}
-                            className={`rounded-xl border px-4 py-2 text-sm font-bold transition ${
-                              label === item
-                                ? "border-orange-300 bg-orange-50 text-orange-700"
-                                : "border-slate-200 bg-white text-slate-600 hover:border-orange-200"
-                            }`}
-                          >
-                            {item}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {step === 3 && (
-                  <div className="mt-8 text-center">
-                    <p className="muted text-sm">
-                      We sent a 6-digit OTP to <b className="text-slate-700">+91 {mobile}</b>
-                    </p>
-                    <input
-                      inputMode="numeric"
-                      maxLength={6}
-                      autoFocus
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                      placeholder="• • • • • •"
-                      aria-label="OTP"
-                      className="input mx-auto mt-5 max-w-xs text-center text-2xl font-black tracking-[0.5em]"
-                    />
-                    <p className="mt-3 text-xs text-slate-400">Demo only: enter any 6 digits.</p>
                   </div>
                 )}
 
@@ -258,7 +224,7 @@ export default function Register() {
 
                 <div className="mt-8 flex justify-end">
                   <Button type="submit" loading={loading}>
-                    {step === 3 ? "Verify & create account" : "Continue"}
+                    {step === 2 ? "Create account" : "Continue"}
                     <ArrowRight size={17} />
                   </Button>
                 </div>

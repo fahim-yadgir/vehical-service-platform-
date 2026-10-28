@@ -2,8 +2,10 @@
 import { useParams } from "next/navigation";
 import Topbar from "../../../../../components/navbar/Topbar";
 import SectionHeading from "../../../../../components/ui/SectionHeading";
-import { bookingsForVehicle, useVehicles } from "../../../../../lib/customerVehicles";
-import { serviceCenters } from "../../../../../lib/serviceCenters";
+import { useVehicles, ordersForVehicle } from "../../../../../lib/customerVehicles";
+import { useCustomerOrders } from "../../../../../lib/customerOrders";
+import { useLiveCenters } from "../../../../../lib/liveCenters";
+import { money, statusLabel } from "../../../../../lib/orders";
 import { Wrench, Calendar, MapPin, ArrowLeft, CheckCircle2, Clock, Store } from "lucide-react";
 import Link from "next/link";
 
@@ -16,7 +18,9 @@ export default function ServiceHistoryPage() {
   const vehicle = vehicles.find((v) => v.id === vehicleId);
 
   // 2. Filter bookings related to this vehicle
-  const vehicleBookings = bookingsForVehicle(vehicle);
+  const { orders } = useCustomerOrders();
+  const { centers } = useLiveCenters();
+  const vehicleBookings = ordersForVehicle(orders, vehicle);
 
   return (
     <>
@@ -63,8 +67,8 @@ export default function ServiceHistoryPage() {
                           <span className="flex items-center gap-1">
                             <MapPin size={14} className="text-slate-400" />
                             {(() => {
-                              const c = serviceCenters.find((x) => x.name === b.centre);
-                              return c ? <Link href={`/customer/serviceCenters/${c.id}`} className="hover:text-orange-600 hover:underline">{b.centre}</Link> : b.centre;
+                              const c = centers.find((x) => x.id === b.tenantId);
+                              return c ? <Link href={`/customer/serviceCenters/${c.id}`} className="hover:text-orange-600 hover:underline">{c.name}</Link> : "Service centre";
                             })()}
                           </span>
                           <span className="flex items-center gap-1">
@@ -76,8 +80,9 @@ export default function ServiceHistoryPage() {
 
                     <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-t-0 pt-3 md:pt-0 border-slate-100">
                       <div className="text-right">
-                        <span className="block text-xs text-slate-400 font-medium">Amount Paid</span>
-                        <span className="text-base font-black text-slate-900">{b.amount}</span>
+                        <span className="block text-xs text-slate-400 font-medium">Amount</span>
+                        <span className="text-base font-black text-slate-900">{money(b.amount)}</span>
+                        <Link href={`/customer/bookings/${b.id}`} className="mt-1 block text-xs font-bold text-orange-600 hover:underline">View booking</Link>
                       </div>
                       <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold capitalize ${
                         b.status === "completed" 
@@ -85,7 +90,7 @@ export default function ServiceHistoryPage() {
                           : "bg-amber-50 text-amber-700"
                       }`}>
                         {b.status === "completed" ? <CheckCircle2 size={13} /> : <Clock size={13} />}
-                        {b.status.replace("_", " ")}
+                        {statusLabel(b.status)}
                       </span>
                     </div>
                   </div>

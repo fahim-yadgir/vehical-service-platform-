@@ -6,12 +6,13 @@ import Topbar from "../../../components/navbar/Topbar";
 import KpiCard from "../../../components/cards/KpiCard";
 import Badge from "../../../components/ui/Badge";
 import SectionHeading from "../../../components/ui/SectionHeading";
-import { bookings } from "../../../lib/mock-data";
-import { bookingsForVehicle, useVehicles, vehicleName } from "../../../lib/customerVehicles";
-import { distanceKm, formatKm } from "../../../lib/geo";
-import { defaultProfile, loadProfile } from "../../../lib/customerProfile";
-import { DEFAULT_LOCATION, loadLocation } from "../../../lib/customerLocation";
+import { ordersForVehicle, useVehicles, vehicleName } from "../../../lib/customerVehicles";
+import { useCustomerOrders } from "../../../lib/customerOrders";
 import { useLiveCenters } from "../../../lib/liveCenters";
+import { isClosed, money, statusLabel, statusProgress, statusTone } from "../../../lib/orders";
+import { distanceKm, formatKm } from "../../../lib/geo";
+import { loadProfile } from "../../../lib/customerProfile";
+import { DEFAULT_LOCATION, loadLocation } from "../../../lib/customerLocation";
 
 import {
   Clock,
@@ -36,8 +37,10 @@ import {
 
 export default function DashboardPage() {
   const { vehicles } = useVehicles();
+  const { orders } = useCustomerOrders();
+  const { centers: liveCenters } = useLiveCenters();
   const [location, setLocation] = useState(DEFAULT_LOCATION);
-  const [firstName, setFirstName] = useState(defaultProfile.fullName.split(" ")[0]);
+  const [firstName, setFirstName] = useState("");
   useEffect(() => {
     setFirstName(loadProfile().fullName.trim().split(" ")[0]);
     const saved = loadLocation();
@@ -45,10 +48,12 @@ export default function DashboardPage() {
   }, []);
 
   // Same data as the Service Centers pages, sorted by distance from the saved location.
-    const { centers: live } = useLiveCenters();
   const centers = useMemo(
-    () => live.map((c) => ({ ...c, km: distanceKm(location, c.location) })).sort((a, z) => a.km - z.km),
-    [live, location]
+    () =>
+      liveCenters
+        .map((c) => ({ ...c, km: distanceKm(location, c.location) }))
+        .sort((a, z) => a.km - z.km),
+    [location, liveCenters]
   );
   const nearby = centers.slice(0, 4);
   const topRated = [...centers].sort((a, z) => z.rating - a.rating).slice(0, 3);
@@ -57,14 +62,21 @@ export default function DashboardPage() {
   // Primary vehicle = first in "My Vehicles". Its active booking drives the hero + current service.
   const vehicle = vehicles[0];
   const VehicleIcon = vehicle && /bike|scooter/i.test(vehicle.type) ? Bike : Car;
-  const vehicleBookings = bookingsForVehicle(vehicle);
-  const completedCount = vehicles.reduce(
-    (n, v) => n + bookingsForVehicle(v).filter((x) => x.status === "completed").length,
-    0
-  );
-  const b = vehicleBookings.find((x) => x.status !== "completed");
-  const bCenter = b && live.find((c) => c.name === b.centre);
-    const historyHref = vehicle ? `/customer/vehicles/${vehicle.id}/history` : "/customer/vehicles";
+  const completedCount = orders.filter((o) => o.status === "completed").length;
+  // current service = the customer's latest open order (this vehicle first)
+  const active = ordersForVehicle(orders, vehicle).find((o) => !isClosed(o.status)) ?? orders.find((o) => !isClosed(o.status));
+  const bCenter = active && liveCenters.find((c) => c.id === active.tenantId);
+  const b = active && {
+    id: active.id,
+    vehicle: `${active.vehicle.brand} ${active.vehicle.model}`,
+    service: active.service,
+    centre: bCenter?.name ?? "Service centre",
+    status: active.status,
+    progress: statusProgress(active.status),
+    date: active.date,
+    amount: money(active.amount),
+  };
+  const historyHref = vehicle ? `/customer/vehicles/${vehicle.id}/history` : "/customer/vehicles";
   const findCenters = (service?: string) =>
     service ? `/customer/serviceCenters?service=${encodeURIComponent(service)}` : "/customer/serviceCenters";
 
@@ -379,8 +391,8 @@ export default function DashboardPage() {
                     <Star size={15} fill="currentColor" />
                     {c.rating.toFixed(1)}
                   </span>
-                  <span className="muted">({c.rating > 0 ? c.rating.toFixed(1) : "New"} reviews)</span>
-                  <span className="muted">· {c.reviewCount > 0 && <span className="muted">({c.reviewCount} reviews)</span>}</span>
+                  <span className="muted">({c.reviewCount} reviews)</span>
+                  <span className="muted">· {formatKm(c.km)}</span>
                 </div>
 
                 <p className="mt-4 text-sm text-slate-500">{c.services.slice(0, 3).join(" · ")}</p>
@@ -434,7 +446,7 @@ export default function DashboardPage() {
                   <span className="grid size-9 place-items-center rounded-xl bg-orange-50 text-orange-500">
                     <Clock size={17} />
                   </span>
-                  Inspection complete · Repair underway · Quality check next
+                  Status: {b.status.replaceAll("_", " ")}
                 </div>
               </>
             ) : (
@@ -481,7 +493,7 @@ export default function DashboardPage() {
 
                 <span className="flex items-center gap-1 text-xs font-bold text-amber-500">
                   <Star size={13} fill="currentColor" />
-                  {c.rating > 0 ? c.rating.toFixed(1) : "New"}          
+                  {c.rating.toFixed(1)}
                 </span>
               </Link>
             ))}
@@ -525,42 +537,35 @@ export default function DashboardPage() {
           <SectionHeading
             title="Recent activity"
             action={
-              <Link href={historyHref} className="btn btn-secondary">
-                Service history <ArrowRight size={15} />
+              <Link href="/customer/bookings" className="btn btn-secondary">
+                All bookings <ArrowRight size={15} />
               </Link>
             }
           />
 
-          <div className="grid gap-3 md:grid-cols-2">
-            {bookings.map((booking) => (
-              <div
-                key={booking.id}
-                className="rounded-2xl border border-slate-100 p-4 transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <div className="flex justify-between gap-3">
-                  <div>
-                    <p className="font-bold">
-                      {booking.id} · {booking.service}
-                    </p>
-
-                    <p className="muted mt-1 text-sm">
-                      {booking.vehicle} · {booking.date}
-                    </p>
+          {orders.length === 0 ? (
+            <p className="muted rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm">
+              No bookings yet. <Link href="/customer/bookings/new" className="font-bold text-orange-600 underline">Book your first service</Link>.
+            </p>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {orders.slice(0, 4).map((o) => (
+                <Link
+                  key={o.id}
+                  href={`/customer/bookings/${o.id}`}
+                  className="rounded-2xl border border-slate-100 p-4 transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="flex justify-between gap-3">
+                    <div>
+                      <p className="font-bold">{o.id} · {o.service}</p>
+                      <p className="muted mt-1 text-sm">{o.vehicle.brand} {o.vehicle.model} · {o.date}</p>
+                    </div>
+                    <Badge tone={statusTone(o.status)}>{statusLabel(o.status)}</Badge>
                   </div>
-
-                  <Badge
-                    tone={
-                      booking.status === "completed"
-                        ? "green"
-                        : "yellow"
-                    }
-                  >
-                    {booking.status.replaceAll("_", " ")}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* WHY AUTOSERVE */}

@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
-import { bookings, vehicles as seed } from "./mock-data";
+import { getSessionAccount } from "./tenantAccounts";
+import { vehicles as seed } from "./mock-data";
+import type { Order } from "./orders";
 
 export type CustomerVehicle = {
   id: string;
@@ -17,24 +19,29 @@ export type CustomerVehicle = {
 
 const KEY = "customer.vehicles";
 
-/** Replace with an API call once the backend is ready. */
+const keyNow = () => {
+  const mobile = getSessionAccount()?.mobile;
+  return mobile ? `${KEY}.${mobile}` : KEY;
+};
+
+/** Replace with an API call once the backend is ready. A new customer starts with an empty garage. */
 export function loadVehicles(): CustomerVehicle[] {
   try {
-    const saved = window.localStorage.getItem(KEY);
+    const saved = window.localStorage.getItem(keyNow());
     if (saved) return JSON.parse(saved) as CustomerVehicle[];
   } catch {}
-  return seed as CustomerVehicle[];
+  return getSessionAccount() ? [] : (seed as CustomerVehicle[]);
 }
 
 export function saveVehicles(items: CustomerVehicle[]) {
   try {
-    window.localStorage.setItem(KEY, JSON.stringify(items));
+    window.localStorage.setItem(keyNow(), JSON.stringify(items));
   } catch {}
 }
 
 /** Shared by dashboard, vehicles and history pages. `ready` is false until localStorage is read. */
 export function useVehicles() {
-  const [items, setItems] = useState<CustomerVehicle[]>(seed as CustomerVehicle[]);
+  const [items, setItems] = useState<CustomerVehicle[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -52,6 +59,6 @@ export function useVehicles() {
 
 export const vehicleName = (v: CustomerVehicle) => `${v.brand} ${v.model}`;
 
-/** Bookings of one vehicle (booking.vehicle is stored as "Brand Model"). */
-export const bookingsForVehicle = (v?: CustomerVehicle) =>
-  v ? bookings.filter((b) => b.vehicle.toLowerCase() === vehicleName(v).toLowerCase()) : [];
+/** Real orders of one vehicle, matched by registration number. */
+export const ordersForVehicle = (orders: Order[], v?: CustomerVehicle) =>
+  v ? orders.filter((o) => o.vehicle.registrationNo.trim().toLowerCase() === v.registration.trim().toLowerCase()) : [];

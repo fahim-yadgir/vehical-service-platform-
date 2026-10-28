@@ -10,7 +10,7 @@ export type OwnerProfile = {
   city: string;
   state: string;
   pincode: string;
-  /** Optional map pin. */
+  /** Map pin. Required for the centre to appear to customers. */
   lat?: number;
   lng?: number;
 };
@@ -38,6 +38,11 @@ export function saveOwnerProfile(tenantId: string, profile: OwnerProfile) {
 export const isProfileComplete = (p: OwnerProfile | null) =>
   !!p && !!p.address.trim() && !!p.city.trim() && !!p.state.trim() && !!p.pincode.trim();
 
+export const hasMapPin = (p: OwnerProfile | null) => !!p && typeof p.lat === "number" && typeof p.lng === "number";
+
+/** Customers see a centre only when the address AND the map pin are saved. */
+export const isListedOnApp = (p: OwnerProfile | null) => isProfileComplete(p) && hasMapPin(p);
+
 /** Saved profile of a tenant. `loaded` is false until localStorage has been read. */
 export function useOwnerProfile(tenantId: string | undefined) {
   const [profile, setProfile] = useState<OwnerProfile | null>(null);
@@ -60,6 +65,3 @@ export function useOwnerProfile(tenantId: string | undefined) {
 
   return { profile, loaded, save };
 }
-/** A centre is listed for customers only with a full address and a map pin. */
-export const isListedOnApp = (p: OwnerProfile | null) =>
-  isProfileComplete(p) && p?.lat !== undefined && p?.lng !== undefined;
