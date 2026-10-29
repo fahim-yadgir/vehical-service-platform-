@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, Sparkles } from "lucide-react";
 import Topbar from "../../../components/navbar/Topbar";
 import Button from "../../../components/ui/Button";
 import Badge from "../../../components/ui/Badge";
 import { TRIAL_DAYS, useOwnerSubscription } from "../../../lib/ownerTenant";
 import { plans, planPriceOf, usePlanPrices } from "../../../lib/plans";
+import { forTenant, restoreOrders, useOrders } from "../../../lib/orders";
+import { restoreStaff, tenantHeadcount, useAppSelector } from "../../../lib/redux-store";
 
 const fmt = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
 
@@ -15,6 +17,17 @@ export default function OwnerSubscription() {
   const { prices } = usePlanPrices();
   // The plan comes from the tenant the admin created.
   const sub = useOwnerSubscription();
+  const orders = useOrders();
+  const staff = useAppSelector((state) => state.staff);
+  useEffect(() => {
+    restoreOrders();
+    restoreStaff();
+  }, []);
+
+  // Real usage of this centre, taken from its own orders and team.
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const bookingsThisMonth = sub ? forTenant(orders, sub.tenant.id).filter((o) => o.createdBy.at.slice(0, 7) === thisMonth).length : 0;
+  const team = sub ? tenantHeadcount(staff, sub.tenant.id) : null;
 
   const badge = !sub
     ? null
@@ -32,8 +45,8 @@ export default function OwnerSubscription() {
   return (
     <>
       <Topbar title="Subscription" subtitle="Plan, usage and renewal controls" />
-      <div className="container space-y-5">
-        <div className="card glow max-w-2xl overflow-hidden">
+      <div className="container grid items-start gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <div className="card glow overflow-hidden">
           <div className="bg-slate-950 p-7 text-white">
             <div className="flex items-center justify-between">
               <div>
@@ -62,12 +75,12 @@ export default function OwnerSubscription() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl bg-slate-50 p-4">
                 <p className="muted text-xs">Bookings this month</p>
-                <p className="mt-2 text-xl font-black">386 / 1,000</p>
-                <div className="mt-3 progress-track"><div className="progress-fill w-[39%]" /></div>
+                <p className="mt-2 text-xl font-black">{bookingsThisMonth}</p>
               </div>
               <div className="rounded-2xl bg-slate-50 p-4">
-                <p className="muted text-xs">Auto renewal</p>
-                <p className="mt-2 flex items-center gap-2 font-black text-emerald-600"><CheckCircle2 size={18} /> Enabled</p>
+                <p className="muted text-xs">Team members</p>
+                <p className="mt-2 text-xl font-black">{team?.total ?? 0}</p>
+                <p className="muted mt-1 text-xs">{team ? `1 owner, ${team.managers} manager${team.managers === 1 ? "" : "s"}, ${team.staff} staff` : ""}</p>
               </div>
             </div>
             <div className="mt-6 flex items-center justify-between gap-3">
@@ -77,7 +90,7 @@ export default function OwnerSubscription() {
           </div>
         </div>
 
-        <section className="card max-w-2xl p-6">
+        <section className="card p-6">
           <h3 className="font-black text-slate-900">Plans</h3>
           <ul className="mt-3 divide-y divide-slate-100 text-sm">
             {plans.map((p) => {

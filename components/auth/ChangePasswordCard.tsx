@@ -42,7 +42,7 @@ export default function ChangePasswordCard() {
   };
 
   return (
-    <form onSubmit={submit} className="card max-w-3xl space-y-4 p-6">
+    <form onSubmit={submit} className="card space-y-4 p-6">
       <div>
         <h3 className="text-lg font-black text-slate-900">Change password</h3>
         <p className="mt-1 text-sm text-slate-500">Use at least 8 characters with a letter and a number.</p>

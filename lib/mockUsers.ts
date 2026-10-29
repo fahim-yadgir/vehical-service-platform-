@@ -1,5 +1,6 @@
 import type { StaffMember, Tenant } from "./redux-store";
 import { customerUserId, type TenantAccount } from "./tenantAccounts";
+import type { Order } from "./orders";
 
 export type UserRole = "Customer" | "Owner" | "Manager" | "Staff";
 export type PlatformUser = {
@@ -8,65 +9,49 @@ export type PlatformUser = {
   mobile: string;
   email: string;
   role: UserRole;
-  /** Staff: the tenant they work for. Customer: the centre they last used. */
+  /** Owner, manager, staff: the centre they work for. Customer: the centre they booked with last. */
   tenant: string;
   joined: string; // yyyy-mm-dd
 };
 
 export const roles: UserRole[] = ["Customer", "Owner", "Manager", "Staff"];
 
-const first = ["Aarav", "Vihaan", "Ishaan", "Rohan", "Kunal", "Neha", "Priya", "Sneha", "Pooja", "Tanvi", "Imran", "Zoya", "Sahil", "Nikhil", "Divya", "Omkar", "Rutuja", "Yash", "Mitali", "Farhan"];
-const last = ["Patil", "Shaikh", "Kulkarni", "Deshmukh", "Jadhav", "Khan", "More", "Pawar", "Joshi", "Shinde", "Gaikwad", "Sayyed"];
-
-const person = (i: number) => `${first[i % first.length]} ${last[(i * 7 + 3) % last.length]}`;
-const mobile = (i: number) => `98${String(20000000 + ((i * 7919) % 79999999)).padStart(8, "0")}`;
-const emailOf = (name: string, i: number) => `${name.toLowerCase().replace(/\s+/g, ".")}${i % 9}@example.com`;
-const joined = (i: number) => `2026-${String(1 + (i % 10)).padStart(2, "0")}-${String(1 + ((i * 5) % 27)).padStart(2, "0")}`;
-
 /**
- * Mock directory built from the tenants, so the Users page and the Tenants page agree:
- * tenant.users = owner + managers + staff. Replace with an API call later.
+ * The platform directory, built only from what really happened in the app:
+ * admin creates a tenant (owner) -> owner or manager adds managers and staff -> customers register.
+ * Nothing is invented. Replace with an API call later.
  */
-export function buildUsers(tenants: Tenant[], staffList: StaffMember[] = [], customers: TenantAccount[] = []): PlatformUser[] {
+export function buildUsers(
+  tenants: Tenant[],
+  staffList: StaffMember[] = [],
+  customers: TenantAccount[] = [],
+  orders: Order[] = [],
+): PlatformUser[] {
   const users: PlatformUser[] = [];
-  let n = 0;
 
   tenants.forEach((t) => {
-    users.push({ id: `${t.id}-OWN`, name: t.owner, mobile: t.mobile ?? mobile(n), email: t.email ?? emailOf(t.owner, n), role: "Owner", tenant: t.name, joined: t.createdAt });
-    n++;
-    // Real staff added by the owner come first; the rest of t.users is demo data.
-    const real = staffList.filter((m) => m.tenantId === t.id);
-    real.forEach((m) => {
-      users.push({ id: m.id, name: m.name, mobile: m.mobile, email: m.email ?? "–", role: m.role === "Manager" ? "Manager" : "Staff", tenant: t.name, joined: m.createdAt });
-    });
-    const staff = Math.max(0, t.users - 1 - real.length);
-    const managers = staff === 0 ? 0 : Math.max(1, Math.round(staff * 0.15));
-    for (let i = 0; i < staff; i++) {
-      const name = person(n * 3 + 1);
-      users.push({
-        id: `${t.id}-S${String(i + 1).padStart(2, "0")}`,
-        name,
-        mobile: mobile(n),
-        email: emailOf(name, n),
-        role: i < managers ? "Manager" : "Staff",
-        tenant: t.name,
-        joined: joined(n),
+    users.push({ id: `${t.id}-OWN`, name: t.owner, mobile: t.mobile ?? "–", email: t.email ?? "–", role: "Owner", tenant: t.name, joined: t.createdAt });
+    staffList
+      .filter((m) => m.tenantId === t.id)
+      .forEach((m) => {
+        users.push({ id: m.id, name: m.name, mobile: m.mobile, email: m.email ?? "–", role: m.role === "Manager" ? "Manager" : "Staff", tenant: t.name, joined: m.createdAt });
       });
-      n++;
-    }
   });
 
-  // Real customers who registered on the app
   customers.forEach((c) => {
+    // orders are newest first, so the first match is the centre this customer booked with last
+    const last = orders.find((o) => o.tenantId && o.customer.mobile === c.mobile);
+    const centre = last ? tenants.find((t) => t.id === last.tenantId)?.name : undefined;
     users.push({
       id: customerUserId(c.mobile),
       name: c.name,
       mobile: c.mobile,
       email: c.email ?? "–",
       role: "Customer",
-      tenant: "–",
+      tenant: centre ?? "–",
       joined: c.createdAt ?? new Date().toISOString().slice(0, 10),
     });
   });
+
   return users;
 }

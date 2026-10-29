@@ -1,165 +1,179 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { useParams } from "next/navigation";
-import { ArrowLeft, BadgeCheck, MapPin, Navigation, Phone, Truck, Users } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { LocateFixed, MapPin, SlidersHorizontal } from "lucide-react";
 import Topbar from "@/components/navbar/Topbar";
-import Badge from "@/components/ui/Badge";
-import CenterCharges from "@/components/customer/CenterCharges";
-import { useLiveCenters } from "@/lib/liveCenters";
-import { loadOwnerRates, rateAppliesTo, rateLabel, type OwnerRates } from "@/lib/ownerRates";
-import type { VehicleKind } from "@/lib/serviceCenterProfiles";
-import { distanceKm, formatKm } from "@/lib/geo";
-import { DEFAULT_LOCATION, loadLocation, type SavedLocation } from "@/lib/customerLocation";
-import { restoreOrders, useOrders } from "@/lib/orders";
+import BottomSheet from "@/components/ui/BottomSheet";
+import Button from "@/components/ui/Button";
+import LocationPicker, { type PickedLocation } from "@/components/map/LocationPicker";
+import ServiceCenterCard from "@/components/customer/ServiceCenterCard";
+import { ActiveFilterChips, FilterFields, countActive, defaultFilters, type Filters } from "@/components/customer/ServiceCenterFilters";
+import { liveServiceOptions, useLiveCenters } from "@/lib/liveCenters";
+import { distanceKm } from "@/lib/geo";
+import { DEFAULT_LOCATION, loadLocation, saveLocation, type SavedLocation } from "@/lib/customerLocation";
 
 const ServiceCentersMap = dynamic(() => import("@/components/map/ServiceCentersMap"), {
   ssr: false,
-  loading: () => <div className="grid h-[280px] place-items-center rounded-2xl bg-slate-100 text-sm text-slate-400">Loading map...</div>,
+  loading: () => <div className="grid h-[520px] place-items-center rounded-2xl bg-slate-100 text-sm text-slate-400">Loading map...</div>,
 });
 
-function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return (
-    <section className="card p-5 sm:p-7">
-      <h2 className="text-xl font-black text-slate-900">{title}</h2>
-      {subtitle && <p className="muted mt-1 text-sm">{subtitle}</p>}
-      <div className="mt-5">{children}</div>
-    </section>
-  );
-}
-
-export default function ServiceCenterProfile() {
-  const { id } = useParams<{ id: string }>();
+/**
+ * Two modes, like a shop:
+ *  - at first every live centre is shown as a card, with no distance, map or distance filter;
+ *  - once the customer opens the location card and confirms a place, centres are sorted by distance and the map appears.
+ */
+function ServiceCentersList() {
+  const params = useSearchParams();
   const { centers, ready } = useLiveCenters();
-  const center = centers.find((c) => c.id === id);
-  const orders = useOrders();
-
-  const [location, setLocation] = useState<SavedLocation>(DEFAULT_LOCATION);
-  const [kind, setKind] = useState<VehicleKind>("Car");
-  const [rates, setRates] = useState<OwnerRates | null>(null);
+  const [saved, setSaved] = useState<SavedLocation | null>(null);
+  const [useNearby, setUseNearby] = useState(false); // false at start, on purpose
+  const [picking, setPicking] = useState(false);
+  const [draft, setDraft] = useState<PickedLocation | null>(null);
+  const [filters, setFilters] = useState<Filters>({ ...defaultFilters, service: params.get("service") ?? "all" });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [sheet, setSheet] = useState(false);
 
   useEffect(() => {
-    restoreOrders();
-    const saved = loadLocation();
-    if (saved) setLocation(saved);
+    setSaved(loadLocation());
   }, []);
 
-  useEffect(() => {
-    setRates(center ? loadOwnerRates(center.id) : null);
-  }, [center?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const location = saved ?? DEFAULT_LOCATION;
+  const options = useMemo(() => liveServiceOptions(centers), [centers]);
 
-  if (!ready) {
-    return <Topbar title="Service Center" subtitle="Loading…" />;
-  }
+  const results = useMemo(() => {
+    const byService = centers.filter((c) => filters.service === "all" || c.services.includes(filters.service));
+    if (!useNearby) return byService.map((c) => ({ ...c, distance: undefined as number | undefined })).sort((a, z) => a.name.localeCompare(z.name));
+    const list = byService
+      .map((c) => ({ ...c, distance: distanceKm(location, c.location) as number | undefined }))
+      .filter((c) => !filters.maxKm || (c.distance ?? 0) <= filters.maxKm);
+    return list.sort((a, z) => (filters.sort === "rating" ? z.rating - a.rating || (a.distance ?? 0) - (z.distance ?? 0) : (a.distance ?? 0) - (z.distance ?? 0)));
+  }, [centers, location, filters, useNearby]);
 
-  if (!center) {
-    return (
-      <>
-        <Topbar title="Service Center" />
-        <div className="container">
-          <div className="card p-10 text-center">
-            <p className="font-black">Service center not found</p>
-            <p className="muted mt-1 text-sm">It may be paused or not yet listed.</p>
-            <Link href="/customer/serviceCenters" className="btn btn-secondary mt-4">Back to service centers</Link>
-          </div>
-        </div>
-      </>
-    );
-  }
+  if (!ready) return <Topbar title="Service Centers" subtitle="Loading…" />;
 
-  const completed = orders.filter((o) => o.tenantId === center.id && o.status === "completed").length;
-  const serviceRows = (rates?.services ?? []).filter((r) => rateAppliesTo(r, kind)).map((r) => ({ name: r.name, note: r.note, price: rateLabel(r.price) }));
-  const facilityRows = (rates?.facilities ?? []).filter((r) => rateAppliesTo(r, kind)).map((r) => ({ name: r.name, note: r.note, price: rateLabel(r.price) }));
-  const hasRates = (rates?.services.length ?? 0) > 0;
+  const openPicker = () => {
+    setDraft({ ...location });
+    setPicking(true);
+  };
+  const confirmLocation = () => {
+    if (!draft || draft.address === "Finding address...") return;
+    saveLocation(draft);
+    setSaved(draft);
+    setUseNearby(true);
+    setPicking(false);
+  };
+  const showAll = () => {
+    setUseNearby(false);
+    setFilters({ ...filters, maxKm: 0, sort: "nearest" });
+  };
 
-  const tel = `tel:${center.phone.replaceAll(" ", "")}`;
-  const directions = `https://www.google.com/maps/dir/?api=1&destination=${center.location.lat},${center.location.lng}`;
+  const active = countActive(filters);
 
   return (
     <>
-      <Topbar title={center.name} subtitle={center.area} />
-
-      <div className="container space-y-6">
-        <Link href="/customer/serviceCenters" className="btn btn-secondary text-sm">
-          <ArrowLeft size={16} /> All service centers
-        </Link>
-
-        <section className="card space-y-4 p-5 sm:p-7">
-          <div>
-            <h1 className="flex flex-wrap items-center gap-2 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">
-              {center.name}
-              <BadgeCheck size={22} className="text-sky-500" aria-label="Verified on AutoServe" />
-            </h1>
-            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
-              <span className="inline-flex items-center gap-1.5"><MapPin size={15} />{center.address}</span>
-              <span className="font-bold text-slate-700">{formatKm(distanceKm(location, center.location))} away</span>
-            </p>
+      <Topbar title="Service Centers" subtitle={useNearby ? `${results.length} near ${location.address}` : `${results.length} service centre${results.length === 1 ? "" : "s"} on AutoServe`} />
+      <div className="container space-y-5">
+        {/* Location card */}
+        <section className="card flex flex-wrap items-center justify-between gap-4 p-5">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-orange-50 text-orange-500"><MapPin size={20} /></span>
+            <div className="min-w-0">
+              <p className="font-black text-slate-900">{useNearby ? "Showing centres near you" : "Find centres near you"}</p>
+              <p className="muted truncate text-sm">
+                {useNearby ? location.address : "Set your location to see distance, sort by nearest and view the map."}
+              </p>
+            </div>
           </div>
-
           <div className="flex flex-wrap gap-2">
-            <Badge tone="blue">New on AutoServe</Badge>
-            {center.pickupDrop && <Badge tone="green"><Truck size={12} className="mr-1 self-center" />Pickup &amp; drop</Badge>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              { label: "On AutoServe since", value: String(center.since) },
-              { label: "Services completed", value: String(completed) },
-              { label: "Services offered", value: String(center.services.length) },
-              { label: "Team on app", value: String(center.managers + center.staff + 1) },
-            ].map((stat) => (
-              <div key={stat.label} className="rounded-2xl bg-slate-50 p-4">
-                <p className="text-xl font-black text-slate-900">{stat.value}</p>
-                <p className="text-xs text-slate-500">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Link href={`/customer/bookings/new?center=${center.id}`} className="btn btn-primary">Book service</Link>
-            <a href={tel} className="btn btn-secondary"><Phone size={16} /> Call {center.phone}</a>
-            <a href={directions} target="_blank" rel="noreferrer" className="btn btn-secondary"><Navigation size={16} /> Get directions</a>
+            {saved && !useNearby && (
+              <button type="button" onClick={() => setUseNearby(true)} className="btn btn-primary text-sm"><LocateFixed size={16} /> Use saved location</button>
+            )}
+            <button type="button" onClick={openPicker} className={`btn text-sm ${saved && !useNearby ? "btn-secondary" : useNearby ? "btn-secondary" : "btn-primary"}`}>
+              {saved ? "Change location" : "Set location"}
+            </button>
+            {useNearby && <button type="button" onClick={showAll} className="btn btn-secondary text-sm">Show all centres</button>}
           </div>
         </section>
 
-        <Section title="Location">
-          <ServiceCentersMap centers={[center]} user={location} selectedId={center.id} onSelect={() => {}} height={280} />
-          <p className="mt-3 flex items-start gap-2 text-sm text-slate-600"><MapPin size={16} className="mt-0.5 shrink-0 text-orange-500" />{center.address}</p>
-        </Section>
-
-        <Section title="Charges" subtitle="Rates fixed by this service centre.">
-          {hasRates ? (
-            <CenterCharges
-              services={serviceRows}
-              facilities={facilityRows}
-              kind={kind}
-              onKindChange={setKind}
-              servicesEmpty={`No ${kind === "Car" ? "car" : "bike"} service rates added yet. Please call the centre.`}
-              facilitiesEmpty={`No ${kind === "Car" ? "car" : "bike"} facility rates added yet.`}
-            />
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-3">
+          {useNearby ? (
+            <>
+              <div className="hidden flex-wrap items-center gap-3 md:flex">
+                <FilterFields filters={filters} onChange={setFilters} layout="inline" serviceOptions={options} />
+              </div>
+              <button type="button" onClick={() => setSheet(true)} className="btn btn-secondary md:hidden">
+                <SlidersHorizontal size={16} /> Filters{active ? ` (${active})` : ""}
+              </button>
+              <ActiveFilterChips filters={filters} onChange={setFilters} />
+            </>
           ) : (
-            <p className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500">
-              This centre has not added its rates yet. Please call the centre to book.
-            </p>
+            <select value={filters.service} onChange={(e) => setFilters({ ...filters, service: e.target.value })} aria-label="Service" className="input" style={{ width: "auto" }}>
+              <option value="all">All services</option>
+              {options.map((s) => <option key={s}>{s}</option>)}
+            </select>
           )}
-        </Section>
+        </div>
 
-        <Section title="Team">
-          <ul className="grid gap-3 text-sm sm:grid-cols-3">
-            <li className="rounded-2xl bg-slate-50 p-4"><p className="text-xl font-black">1</p><p className="text-xs text-slate-500">Owner</p></li>
-            <li className="rounded-2xl bg-slate-50 p-4"><p className="text-xl font-black">{center.managers}</p><p className="text-xs text-slate-500">Managers</p></li>
-            <li className="rounded-2xl bg-slate-50 p-4"><p className="text-xl font-black">{center.staff}</p><p className="flex items-center gap-1 text-xs text-slate-500"><Users size={12} /> Pickup &amp; drop staff</p></li>
-          </ul>
-        </Section>
-
-        <Section title="Customer reviews">
-          <p className="rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-500">
-            No reviews yet. Reviews will appear here after customers complete a booking.
-          </p>
-        </Section>
+        {centers.length === 0 ? (
+          <div className="card p-10 text-center">
+            <p className="font-black">No service centres are listed yet</p>
+            <p className="muted mt-1 text-sm">A centre appears here once its plan is active and the owner has saved the address and map pin.</p>
+          </div>
+        ) : results.length === 0 ? (
+          <div className="card p-10 text-center">
+            <p className="font-black">No centres match these filters</p>
+            <button type="button" className="btn btn-secondary mt-4" onClick={() => setFilters(defaultFilters)}>Clear filters</button>
+          </div>
+        ) : useNearby ? (
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+            <div className="space-y-4">
+              {results.map((c) => (
+                <div key={c.id} onMouseEnter={() => setSelectedId(c.id)}>
+                  <ServiceCenterCard center={c} selected={c.id === selectedId} />
+                </div>
+              ))}
+            </div>
+            <div className="hidden lg:block">
+              <div className="sticky top-24">
+                <ServiceCentersMap centers={results} user={location} selectedId={selectedId} onSelect={setSelectedId} />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {results.map((c) => <ServiceCenterCard key={c.id} center={c} />)}
+          </div>
+        )}
       </div>
+
+      <BottomSheet
+        open={sheet}
+        onClose={() => setSheet(false)}
+        title="Filters"
+        footer={<Button type="button" className="w-full" onClick={() => setSheet(false)}>Show {results.length} centres</Button>}
+      >
+        <FilterFields filters={filters} onChange={setFilters} layout="stack" serviceOptions={options} />
+      </BottomSheet>
+
+      <BottomSheet
+        open={picking}
+        onClose={() => setPicking(false)}
+        title="Your location"
+        footer={<Button type="button" className="w-full" onClick={confirmLocation}>Show centres near here</Button>}
+      >
+        <LocationPicker value={draft} onChange={setDraft} height={300} />
+      </BottomSheet>
     </>
+  );
+}
+
+export default function ServiceCentersPage() {
+  return (
+    <Suspense fallback={<Topbar title="Service Centers" subtitle="Loading…" />}>
+      <ServiceCentersList />
+    </Suspense>
   );
 }

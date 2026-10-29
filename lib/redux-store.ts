@@ -1,16 +1,19 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { revenue, tenants as initialTenants } from "./mock-data";
-
-export type Tenant = (typeof initialTenants)[number] & { mobile?: string; email?: string };
-
-export type RecentMember = {
+import {revenue} from "./mock-data"
+export type Tenant = {
   id: string;
   name: string;
-  tenant: string;
-  joined: string;
-  status: "Active" | "Inactive";
+  owner: string;
+  status: string; // "Active" | "Suspended"
+  plan: string;
+  /** Kept for the owner/manager pages. The admin panel counts real people from the staff list instead. */
+  users: number;
+  createdAt: string; // yyyy-mm-dd
+  subscriptionExpiresAt: string; // yyyy-mm-dd
+  mobile?: string;
+  email?: string;
 };
 
 /** A manager or driver the owner added to their service centre ("My Staff"). */
@@ -26,14 +29,6 @@ export type StaffMember = {
 };
 
 export type TenantFilter = "all" | "new" | "old" | "expiring" | "expired" | "active" | "suspended";
-
-export const recentMembers: RecentMember[] = [
-  { id: "MEM1048", name: "Ananya Deshmukh", tenant: "AutoCare Pune", joined: "14 Oct 2026", status: "Active" },
-  { id: "MEM1047", name: "Kabir Joshi", tenant: "Speed Motors", joined: "12 Oct 2026", status: "Active" },
-  { id: "MEM1046", name: "Meera Kulkarni", tenant: "Prime Auto", joined: "10 Oct 2026", status: "Active" },
-  { id: "MEM1045", name: "Arjun Rao", tenant: "AutoCare Pune", joined: "08 Oct 2026", status: "Inactive" },
-  { id: "MEM1044", name: "Sara Khan", tenant: "Speed Motors", joined: "05 Oct 2026", status: "Active" },
-];
 
 type AppState = {
   tenants: Tenant[];
@@ -58,15 +53,8 @@ type AppAction =
 export const tenantsStorageKey = "vehicle-service-platform.tenants";
 export const staffStorageKey = "vehicle-service-platform.staff";
 
-const seedContacts: Record<string, { mobile: string; email?: string }> = {
-  TEN001: { mobile: "9822011001", email: "rahul@autocarepune.in" },
-  TEN002: { mobile: "9822011002" },
-  TEN003: { mobile: "9822011003", email: "sameer@primeauto.in" },
-};
-const seededTenants: Tenant[] = initialTenants.map((t) => ({ ...t, ...seedContacts[t.id] }));
-
 const initialState: AppState = {
-  tenants: seededTenants,
+  tenants: [],
   staff: [],
   selectedRevenueMonth: "Oct",
   tenantFilter: "all",
@@ -128,12 +116,30 @@ export const store = {
   },
 };
 
+/** The three demo tenants older versions of the app started with. They are dropped if still saved in this browser. */
+const OLD_DEMO_TENANTS = [
+  { id: "TEN001", name: "AutoCare Pune", owner: "Rahul Patil" },
+  { id: "TEN002", name: "Speed Motors", owner: "Amit Shah" },
+  { id: "TEN003", name: "Prime Auto", owner: "Sameer Khan" },
+];
+const isOldDemoTenant = (t: Tenant) => OLD_DEMO_TENANTS.some((d) => d.id === t.id && d.name === t.name && d.owner === t.owner);
+
 /** Load tenants saved by the Tenants page, so every admin page shows the same data after a refresh. */
 export function restoreTenants() {
   try {
     const saved: unknown = JSON.parse(window.localStorage.getItem(tenantsStorageKey) ?? "null");
-    if (Array.isArray(saved)) store.dispatch({ type: "tenants/restored", payload: saved as Tenant[] });
+    if (!Array.isArray(saved)) return;
+    const real = (saved as Tenant[]).filter((t) => !isOldDemoTenant(t));
+    if (real.length !== saved.length) window.localStorage.setItem(tenantsStorageKey, JSON.stringify(real));
+    store.dispatch({ type: "tenants/restored", payload: real });
   } catch {}
+}
+
+/** Real headcount of one service centre: the owner plus the managers and staff added to it. */
+export function tenantHeadcount(staff: StaffMember[], tenantId: string) {
+  const mine = staff.filter((m) => m.tenantId === tenantId);
+  const managers = mine.filter((m) => m.role === "Manager").length;
+  return { managers, staff: mine.length - managers, total: 1 + mine.length };
 }
 
 /** Load the staff owners added, so Owner, Manager and Admin pages all see the same people after a refresh. */

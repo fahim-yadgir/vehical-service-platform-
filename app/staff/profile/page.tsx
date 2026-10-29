@@ -71,8 +71,8 @@ export default function StaffProfilePage() {
   return (
     <>
       <Topbar title="Profile" subtitle="Your details and your service centre" />
-      <div className="container space-y-5">
-        <section className="card max-w-3xl space-y-4 p-6">
+      <div className="container grid items-start gap-5 lg:grid-cols-2">
+        <section className="card space-y-4 p-6">
           <div>
             <h2 className="text-lg font-black text-slate-900">Service centre</h2>
             <p className="mt-1 text-sm text-slate-500">Only the owner can change these details.</p>
@@ -88,7 +88,7 @@ export default function StaffProfilePage() {
           </div>
         </section>
 
-        <form onSubmit={submit} noValidate className="card max-w-3xl space-y-4 p-6">
+        <form onSubmit={submit} noValidate className="card space-y-4 p-6">
           <h2 className="text-lg font-black text-slate-900">Your details</h2>
           {saved && (
             <p role="status" className="flex items-center gap-1.5 text-sm font-bold text-emerald-600">
@@ -114,7 +114,7 @@ export default function StaffProfilePage() {
 
         <ChangePasswordCard />
 
-        <div className="card flex max-w-3xl items-center justify-between gap-4 p-5">
+        <div className="card flex items-center justify-between gap-4 p-5">
           <div>
             <h3 className="font-black text-slate-900">Log out</h3>
             <p className="text-sm text-slate-500">Sign out of this device.</p>

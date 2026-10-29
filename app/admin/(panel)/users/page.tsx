@@ -8,6 +8,7 @@ import Badge from "../../../../components/ui/Badge";
 import UserDetailsModal from "../../../../components/admin/UserDetailsModal";
 import { restoreStaff, restoreTenants, useAppSelector } from "../../../../lib/redux-store";
 import { loadAccounts, type TenantAccount } from "../../../../lib/tenantAccounts";
+import { restoreOrders, useOrders } from "../../../../lib/orders";
 import { buildUsers, roles, type PlatformUser, type UserRole } from "../../../../lib/mockUsers";
 
 const BLOCKED_KEY = "vehicle-service-platform.blockedUsers";
@@ -17,7 +18,8 @@ export default function Users() {
   const tenants = useAppSelector((state) => state.tenants);
   const staff = useAppSelector((state) => state.staff);
   const [customers, setCustomers] = useState<TenantAccount[]>([]);
-  const users = useMemo(() => buildUsers(tenants, staff, customers), [tenants, staff, customers]);
+  const orders = useOrders();
+  const users = useMemo(() => buildUsers(tenants, staff, customers, orders), [tenants, staff, customers, orders]);
 
   const [blocked, setBlocked] = useState<string[]>([]);
   const [role, setRole] = useState<UserRole | "all">("all");
@@ -29,6 +31,7 @@ export default function Users() {
   useEffect(() => {
     restoreTenants();
     restoreStaff();
+    restoreOrders();
     setCustomers(loadAccounts().filter((a) => a.role === "customer"));
     try {
       const saved = JSON.parse(window.localStorage.getItem(BLOCKED_KEY) ?? "[]");
@@ -121,7 +124,11 @@ export default function Users() {
             </div>,
           ])}
         />
-        {filtered.length === 0 && <p className="py-10 text-center text-sm text-slate-500">No users match your search.</p>}
+        {filtered.length === 0 && (
+          <p className="py-10 text-center text-sm text-slate-500">
+            {users.length === 0 ? "No users yet. They appear here as tenants are created, staff are added and customers register." : "No users match your search."}
+          </p>
+        )}
 
         {pageCount > 1 && (
           <nav className="mt-4 flex flex-wrap items-center justify-between gap-3" aria-label="User pagination">

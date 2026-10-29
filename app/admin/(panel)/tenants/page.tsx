@@ -12,7 +12,7 @@ import { generateTempPassword } from "../../../../lib/tempPassword";
 import { ymd } from "../../../../lib/revenue";
 import { createAccount, removeTenantAccounts } from "../../../../lib/tenantAccounts";
 import TenantDetailsModal, { subscriptionState } from "../../../../components/admin/TenantDetailsModal";
-import { restoreStaff, store, tenantsStorageKey, useAppSelector, type Tenant, type TenantFilter } from "../../../../lib/redux-store";
+import { restoreStaff, restoreTenants, store, tenantHeadcount, useAppSelector, type Tenant, type TenantFilter } from "../../../../lib/redux-store";
 import { plans, planExpiry } from "../../../../lib/plans";
 
 const filters: { value: TenantFilter; label: string }[] = [
@@ -62,16 +62,7 @@ export default function Tenants() {
 
 	useEffect(() => {
 		restoreStaff();
-		try {
-			const savedTenants = window.localStorage.getItem(tenantsStorageKey);
-			if (savedTenants) {
-				const tenants: unknown = JSON.parse(savedTenants);
-				if (Array.isArray(tenants)) {
-					store.dispatch({ type: "tenants/restored", payload: tenants as Tenant[] });
-				}
-			}
-		} catch {
-		}
+		restoreTenants();
 	}, []);
 
 	function saveTenant(event: FormEvent<HTMLFormElement>) {
@@ -82,7 +73,6 @@ export default function Tenants() {
 			owner: String(formData.get("owner")),
 			status: String(formData.get("status")) as Tenant["status"],
 			plan: String(formData.get("plan")),
-			users: Number(formData.get("users")),
 			subscriptionExpiresAt: String(formData.get("subscriptionExpiresAt")),
 		};
 		if (!tenantToEdit) return;
@@ -224,10 +214,6 @@ export default function Tenants() {
 								<input name="owner" required className="input" defaultValue={tenantToEdit?.owner ?? ""} placeholder="e.g. Asha Mehta" />
 							</label>
 							<label className="block space-y-2">
-								<span className="text-sm font-bold text-slate-700">Number of users</span>
-								<input name="users" type="number" min="1" required className="input" defaultValue={tenantToEdit?.users ?? ""} placeholder="1" />
-							</label>
-							<label className="block space-y-2">
 								<span className="text-sm font-bold text-slate-700">Subscription plan</span>
 								<select
 									name="plan"
@@ -268,7 +254,7 @@ export default function Tenants() {
 						rows={pageItems.map((tenant) => [
 							<b key="name">{tenant.name}</b>,
 							tenant.owner,
-							String(tenant.users),
+							String(tenantHeadcount(staff, tenant.id).total),
 							tenant.plan,
 							new Date(`${tenant.subscriptionExpiresAt}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
 							<Badge key="status" tone={tenant.status === "Active" ? "green" : "red"}>
@@ -283,7 +269,9 @@ export default function Tenants() {
 						])}
 					/>
 					{filteredItems.length === 0 && (
-						<p className="py-10 text-center text-sm text-slate-500">No tenants match this filter.</p>
+						<p className="py-10 text-center text-sm text-slate-500">
+							{items.length === 0 ? "No service centres yet. Click \"Add service centre\" to create the first one." : "No tenants match this filter."}
+						</p>
 					)}
 					{pageCount > 1 && (
 						<nav className="mt-4 flex flex-wrap items-center justify-between gap-3" aria-label="Tenant pagination">

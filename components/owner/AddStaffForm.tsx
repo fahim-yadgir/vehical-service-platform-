@@ -16,6 +16,7 @@ type Props = {
   onCancel: () => void;
   roles?: NewStaff["role"][];
 };
+
 const roleLabel = {
   Manager: "Manager (workshop operations)",
   staff: "Staff / Driver (pickup & drop)",
@@ -102,32 +103,23 @@ export default function AddStaffForm({
       </div>
       <form onSubmit={submit} noValidate className="grid gap-4 sm:grid-cols-2">
         {field("name", "Full name", { placeholder: "e.g. Riya Sharma" })}
+        
+        {/* Role dropdown ab sirf ek hi baar render hoga */}
         <label className="block space-y-2">
-          {roles.length > 1 && (
-            <label className="block space-y-2">
-              <span className="text-sm font-bold text-slate-700">Role</span>
-              <select
-                value={form.role}
-                onChange={(e) => set("role", e.target.value)}
-                className="input"
-              >
-                {roles.map((r) => (
-                  <option key={r} value={r}>
-                    {roleLabel[r]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          <span className="text-sm font-bold text-slate-700">Role</span>
           <select
             value={form.role}
-            onChange={(e) => set("role", e.target.value)}
+            onChange={(e) => set("role", e.target.value as NewStaff["role"])}
             className="input"
           >
-            <option value="Manager">Manager (workshop operations)</option>
-            <option value="Driver">Staff / Driver (pickup &amp; drop)</option>
+            {roles.map((r) => (
+              <option key={r} value={r}>
+                {roleLabel[r]}
+              </option>
+            ))}
           </select>
         </label>
+
         {field("mobile", "Mobile number", {
           type: "tel",
           inputMode: "numeric",

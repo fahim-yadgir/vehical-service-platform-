@@ -1,1 +1,0 @@
-Frontend scope: phases 1–6 plus testing. Backend APIs, database, microservices, Kafka/Redis backend, AWS/Kubernetes, real payment/GPS/notification backends and CI/CD infrastructure are intentionally excluded.

@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { X, MapPin, Phone, Clock, Star } from "lucide-react";
 import Badge from "../ui/Badge";
-import type { Tenant } from "../../lib/redux-store";
+import { tenantHeadcount, useAppSelector, type Tenant } from "../../lib/redux-store";
 import { useLiveCenters } from "../../lib/liveCenters";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -27,6 +27,8 @@ type Props = {
 export default function TenantDetailsModal({ tenant, onClose, onToggleStatus, onManage }: Props) {
   const { left, expired } = subscriptionState(tenant);
   const { centers } = useLiveCenters();
+  const staffList = useAppSelector((state) => state.staff);
+  const head = tenantHeadcount(staffList, tenant.id);
   const center = centers.find((c) => c.id === tenant.id); 
   const isActive = tenant.status === "Active";
   const liveOnApp = isActive && !expired && !!center;
@@ -36,7 +38,7 @@ export default function TenantDetailsModal({ tenant, onClose, onToggleStatus, on
     ["Owner", tenant.owner],
     ["Mobile", tenant.mobile ?? "–"],
     ["Email", tenant.email ?? "–"],
-    ["Users", tenant.users],
+    ["Users", `${head.total} (1 owner, ${head.managers} manager${head.managers === 1 ? "" : "s"}, ${head.staff} staff)`],
     ["Joined", fmt(tenant.createdAt)],
     ["Plan", tenant.plan],
     ["Subscription ends", fmt(tenant.subscriptionExpiresAt)],

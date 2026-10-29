@@ -4,7 +4,8 @@ import Badge from "../ui/Badge";
 import { formatKm } from "../../lib/geo";
 import type { ServiceCenter } from "../../lib/serviceCenters";
 
-export type CenterWithDistance = ServiceCenter & { distance: number };
+/** `distance` is only set once the customer has chosen a location. */
+export type CenterWithDistance = ServiceCenter & { distance?: number };
 
 export default function ServiceCenterCard({ center, selected = false }: { center: CenterWithDistance; selected?: boolean }) {
   return (
@@ -15,8 +16,12 @@ export default function ServiceCenterCard({ center, selected = false }: { center
           <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500">
             <MapPin size={14} className="shrink-0" />
             <span className="truncate">{center.address}</span>
-            <span aria-hidden>·</span>
-            <span className="shrink-0 font-bold text-slate-700">{formatKm(center.distance)}</span>
+            {center.distance !== undefined && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="shrink-0 font-bold text-slate-700">{formatKm(center.distance)}</span>
+              </>
+            )}
           </p>
         </div>
         {center.rating > 0 ? (
