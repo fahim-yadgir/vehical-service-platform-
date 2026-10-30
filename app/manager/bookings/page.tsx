@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Topbar from "../../../components/navbar/Topbar";
 import DataTable from "../../../components/tables/DataTable";
@@ -9,9 +9,11 @@ import AssignStaffSelect from "../../../components/manager/AssignStaffSelect";
 import OrderStatusSelect from "../../../components/manager/OrderStatusSelect";
 import { useOwnerSubscription } from "../../../lib/ownerTenant";
 import { restoreStaff, useAppSelector } from "../../../lib/redux-store";
+import { inOrderTab, orderTabs } from "../../../lib/orderTabs";
 import {
   assignOrder,
   changeOrderStatus,
+  forTenant,
   isClosed,
   money,
   restoreOrders,
@@ -25,13 +27,15 @@ export default function ManagerBookings() {
   const sub = useOwnerSubscription();
   const allStaff = useAppSelector((s) => s.staff);
   const allOrders = useOrders();
+  const [filter, setFilter] = useState("all");
 
   useEffect(() => {
     restoreStaff();
     restoreOrders();
   }, []);
 
-  const orders = allOrders.filter((o) => !o.tenantId || o.tenantId === sub?.tenant.id);
+  const orders = forTenant(allOrders, sub?.tenant.id);
+  const shown = orders.filter((o) => inOrderTab(o, filter));
   // only active staff of this manager's own service centre
   const staff = allStaff.filter(
     (m) => m.tenantId === sub?.tenant.id && m.role === "staff" && m.status === "Active",
@@ -68,6 +72,22 @@ export default function ManagerBookings() {
           </Link>
         </div>
 
+        <div className="flex flex-wrap items-center gap-1.5" aria-label="Order filters">
+          {orderTabs.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              aria-pressed={filter === t.value}
+              onClick={() => setFilter(t.value)}
+              className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition ${
+                filter === t.value ? "bg-orange-50 text-orange-700" : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {t.label} <span className="opacity-70">{orders.filter((o) => inOrderTab(o, t.value)).length}</span>
+            </button>
+          ))}
+        </div>
+
         <DataTable
           headers={[
             "Booking",
@@ -79,7 +99,7 @@ export default function ManagerBookings() {
             "Change status",
             "Managed by",
           ]}
-          rows={orders.map((o) => [
+          rows={shown.map((o) => [
             <div key="id">
               <Link href={`/manager/bookings/${o.id}`} className="font-bold hover:underline">
                 {o.id}

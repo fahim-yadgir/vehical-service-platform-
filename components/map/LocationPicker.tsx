@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import { Loader2, LocateFixed, MapPin, Search } from "lucide-react";
 import type { LatLng } from "./MapView";
 
-// Leaflet touches `window`, so the map is loaded on the client only.
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
   loading: () => (
@@ -15,22 +14,46 @@ const MapView = dynamic(() => import("./MapView"), {
   ),
 });
 
-export type PickedLocation = LatLng & { address: string };
+export type PickedLocation = LatLng & { 
+  address: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+};
 
-type SearchResult = { place_id: number; display_name: string; lat: string; lon: string };
+type SearchResult = { 
+  place_id: number; 
+  display_name: string; 
+  lat: string; 
+  lon: string;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    state?: string;
+    postcode?: string;
+  };
+};
 
 const DEFAULT_CENTER: LatLng = { lat: 18.5204, lng: 73.8567 }; // Pune
 
-async function reverseGeocode({ lat, lng }: LatLng) {
+async function reverseGeocode({ lat, lng }: LatLng): Promise<PickedLocation> {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`,
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`
     );
     if (!res.ok) throw new Error();
-    const data: { display_name?: string } = await res.json();
-    return data.display_name ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const data = await res.json();
+    
+    const addressDetails = data.address || {};
+    const city = addressDetails.city || addressDetails.town || addressDetails.village || "";
+    const state = addressDetails.state || "";
+    const pincode = addressDetails.postcode || "";
+    const address = data.display_name ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+    return { lat, lng, address, city, state, pincode };
   } catch {
-    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    return { lat, lng, address: `${lat.toFixed(5)}, ${lng.toFixed(5)}` };
   }
 }
 
@@ -52,16 +75,27 @@ export default function LocationPicker({
 
   const position: LatLng = value ?? DEFAULT_CENTER;
 
-  async function pick(next: LatLng, knownAddress?: string) {
+  async function pick(next: LatLng, knownResult?: SearchResult) {
     const id = ++requestId.current;
-    // Show the pin right away, then fill in the address once it is resolved.
-    onChange({ ...next, address: knownAddress ?? "Finding address..." });
-    if (knownAddress) return;
-    const address = await reverseGeocode(next);
-    if (id === requestId.current) onChange({ ...next, address });
+    
+    if (knownResult) {
+      const addr = knownResult.address || {};
+      const city = addr.city || addr.town || addr.village || "";
+      const state = addr.state || "";
+      const pincode = addr.postcode || "";
+      onChange({ ...next, address: knownResult.display_name, city, state, pincode });
+      return;
+    }
+
+    // Show pin right away, then fetch details via reverse geocode
+    onChange({ ...next, address: "Finding address..." });
+    const locationData = await reverseGeocode(next);
+    if (id === requestId.current) {
+      onChange(locationData);
+    }
   }
 
-  // Debounced place search.
+  // Debounced place search with addressdetails=1
   useEffect(() => {
     const text = query.trim();
     if (text.length < 3) {
@@ -72,7 +106,7 @@ export default function LocationPicker({
       setSearching(true);
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=in&q=${encodeURIComponent(text)}`,
+          `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=in&addressdetails=1&q=${encodeURIComponent(text)}`,
         );
         setResults(res.ok ? await res.json() : []);
       } catch {
@@ -124,7 +158,7 @@ export default function LocationPicker({
                 <button
                   type="button"
                   onClick={() => {
-                    pick({ lat: Number(result.lat), lng: Number(result.lon) }, result.display_name);
+                    pick({ lat: Number(result.lat), lng: Number(result.lon) }, result);
                     setQuery("");
                     setResults([]);
                   }}

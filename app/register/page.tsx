@@ -8,7 +8,9 @@ import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 import Input from "../../components/ui/Input";
 import PasswordInput from "../../components/ui/PasswordInput";
 import Button from "../../components/ui/Button";
-import LocationPicker, { type PickedLocation } from "../../components/map/LocationPicker";
+import LocationPicker, {
+  type PickedLocation,
+} from "../../components/map/LocationPicker";
 import { isEmail, isMobile } from "../../lib/validators";
 import { createAccount } from "../../lib/tenantAccounts";
 import { createCustomerProfile } from "../../lib/customerProfile";
@@ -41,11 +43,18 @@ export default function Register() {
 
     if (step === 1) {
       if (name.trim().length < 2) return setError("Enter your full name.");
-      if (!isMobile(mobile)) return setError("Enter a valid 10-digit mobile number.");
-      if (isMobileRegistered(mobile)) return setError("This mobile number is already registered. Please sign in.");
-      if (password.length < 6) return setError("Password must be at least 6 characters.");
-      if (email && !isEmail(email)) return setError("Enter a valid email address or leave it empty.");
-      if (age && (Number(age) < 14 || Number(age) > 100)) return setError("Enter a valid age.");
+      if (!isMobile(mobile))
+        return setError("Enter a valid 10-digit mobile number.");
+      if (isMobileRegistered(mobile))
+        return setError(
+          "This mobile number is already registered. Please sign in.",
+        );
+      if (password.length < 6)
+        return setError("Password must be at least 6 characters.");
+      if (email && !isEmail(email))
+        return setError("Enter a valid email address or leave it empty.");
+      if (age && (Number(age) < 14 || Number(age) > 100))
+        return setError("Enter a valid age.");
       setError("");
       setStep(2);
       return;
@@ -55,8 +64,12 @@ export default function Register() {
     if (!location || location.address === "Finding address...") {
       return setError("Select your address on the map.");
     }
-    if (house.trim().length < 2) return setError("Enter your house / flat / building details.");
-    if (isMobileRegistered(mobile)) return setError("This mobile number is already registered. Please sign in.");
+    if (house.trim().length < 2)
+      return setError("Enter your house / flat / building details.");
+    if (isMobileRegistered(mobile))
+      return setError(
+        "This mobile number is already registered. Please sign in.",
+      );
 
     setError("");
     setLoading(true);
@@ -70,7 +83,17 @@ export default function Register() {
       password,
       mustChangePassword: false,
     });
-    createCustomerProfile({ fullName: name.trim(), mobile, email: email.trim(), age, gender, address: house.trim() });
+    createCustomerProfile({
+      fullName: name.trim(),
+      mobile,
+      email: email.trim(),
+      age,
+      gender,
+      address: house.trim(),
+      city: location.city || "",
+      state: location.state || "",
+      pincode: location.pincode || "",
+    });
     saveLocationFor(mobile, location);
     setLoading(false);
     setDone(true);
@@ -87,7 +110,8 @@ export default function Register() {
               </div>
               <h1 className="mt-5 text-2xl font-black">Account created</h1>
               <p className="muted mx-auto mt-2 max-w-md text-sm">
-                Welcome, {name.split(" ")[0]}! Sign in to book your first service.
+                Welcome, {name.split(" ")[0]}! Sign in to book your first
+                service.
               </p>
               <Button className="mt-7" onClick={() => router.push("/login")}>
                 Go to login <ArrowRight size={17} />
@@ -128,7 +152,9 @@ export default function Register() {
                 ))}
               </div>
 
-              <h1 className="mt-7 text-3xl font-black">Create your AutoServe account</h1>
+              <h1 className="mt-7 text-3xl font-black">
+                Create your AutoServe account
+              </h1>
 
               <form onSubmit={next} noValidate>
                 {step === 1 && (
@@ -150,7 +176,9 @@ export default function Register() {
                       placeholder="10-digit mobile number"
                       autoComplete="tel"
                       value={mobile}
-                      onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
+                      onChange={(e) =>
+                        setMobile(e.target.value.replace(/\D/g, ""))
+                      }
                     />
                     <div className="sm:col-span-2">
                       <PasswordInput
@@ -177,8 +205,14 @@ export default function Register() {
                       onChange={(e) => setAge(e.target.value)}
                     />
                     <label className="block space-y-2">
-                      <span className="text-sm font-bold text-slate-700">Gender</span>
-                      <select className="input" value={gender} onChange={(e) => setGender(e.target.value)}>
+                      <span className="text-sm font-bold text-slate-700">
+                        Gender
+                      </span>
+                      <select
+                        className="input"
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value)}
+                      >
                         <option value="">Prefer not to say</option>
                         <option>Male</option>
                         <option>Female</option>
@@ -201,7 +235,8 @@ export default function Register() {
                 {step === 2 && (
                   <div className="mt-7 space-y-5">
                     <p className="muted text-sm">
-                      Set your location so we can show workshops near you and arrange pickup.
+                      Set your location so we can show workshops near you and
+                      arrange pickup.
                     </p>
 
                     <LocationPicker value={location} onChange={setLocation} />
@@ -217,7 +252,10 @@ export default function Register() {
                 )}
 
                 {error && (
-                  <p role="alert" className="mt-5 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                  <p
+                    role="alert"
+                    className="mt-5 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700"
+                  >
                     {error}
                   </p>
                 )}

@@ -12,11 +12,14 @@ export const defaultProfile = {
   age: "26",
   gender: "Male",
   address: "Flat 402, Sunrise Apartments",
+  city: "",   // Add this
+  state: "",  // Add this
+  pincode: "", // Add this
 };
 
 export type CustomerProfile = typeof defaultProfile;
 
-export const emptyProfile: CustomerProfile = { fullName: "", mobile: "", email: "", age: "", gender: "", address: "" };
+export const emptyProfile: CustomerProfile = { fullName: "", mobile: "", email: "", age: "", gender: "", address: "", city: "", state: "", pincode: "" };
 
 /** Replace with an API call once the backend is ready. */
 export function loadProfile(): CustomerProfile {

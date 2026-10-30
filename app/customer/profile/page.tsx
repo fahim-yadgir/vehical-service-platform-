@@ -19,7 +19,6 @@ export default function Profile() {
   const { vehicles } = useVehicles();
   const [profileData, setProfileData] = useState(defaultProfile);
   const [backup, setBackup] = useState(defaultProfile);
-  // Map location is the same one Dashboard and Service Centers use for "nearby".
   const [location, setLocation] = useState<PickedLocation | null>(DEFAULT_LOCATION);
   const [locBackup, setLocBackup] = useState<PickedLocation | null>(DEFAULT_LOCATION);
 
@@ -50,9 +49,20 @@ export default function Profile() {
     setProfileData({ ...profileData, [field]: value });
   };
 
+  // Function to extract City, State & Pincode when location changes from map
+ const handleLocationChange = (newLocation: PickedLocation) => {
+    setLocation(newLocation);
+    setProfileData((prev) => ({
+      ...prev,
+      address: newLocation.address || prev.address,
+      city: newLocation.city || prev.city,
+      state: newLocation.state || prev.state,
+      pincode: newLocation.pincode || prev.pincode,
+    }));
+  };
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    // Future me yahan API/Database call aayegi check karne ke liye ki mobile/email already used hai ya nahi
     if (location?.address === "Finding address...") return;
     saveProfile(profileData);
     if (location) saveLocation(location);
@@ -83,7 +93,6 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Edit / Cancel Toggle Button */}
             {!isEditing ? (
               <button
                 type="button"
@@ -106,7 +115,6 @@ export default function Profile() {
           {/* Form Fields */}
           <form onSubmit={handleSave} className="mt-6 space-y-6">
             
-            {/* Personal Info Grid */}
             <div>
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-4">
                 Personal Information
@@ -144,55 +152,65 @@ export default function Profile() {
                   onChange={(e) => handleChange("age", e.target.value)}
                   disabled={!isEditing}
                 />
-                <label className="block space-y-2">
-                  <span className="text-sm font-bold text-slate-700">Gender</span>
-                  <select
-                    className={`w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:border-orange-500 focus:outline-none bg-white ${
-                      !isEditing ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""
-                    }`}
-                    value={profileData.gender}
-                    onChange={(e) => handleChange("gender", e.target.value)}
-                    disabled={!isEditing}
-                  >
-                    <option value="">Prefer not to say</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </label>
               </div>
             </div>
 
             {/* Address Details Section */}
             <div className="pt-4 border-t border-slate-100">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-4">
-                Address
+                Address Details
               </h3>
-              <div>
+              
+              <div className="space-y-4">
                 <Input
-                  label="Flat / House / Building no."
+                  label="Street Address / Flat / Building"
                   value={profileData.address}
                   placeholder="e.g. Flat 402, Sunrise Apartments"
                   onChange={(e) => handleChange("address", e.target.value)}
                   disabled={!isEditing}
                 />
+                
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Input
+                    label="City"
+                    value={profileData.city || ""}
+                    placeholder="City"
+                    onChange={(e) => handleChange("city", e.target.value)}
+                    disabled={!isEditing}
+                  />
+                  <Input
+                    label="State"
+                    value={profileData.state || ""}
+                    placeholder="State"
+                    onChange={(e) => handleChange("state", e.target.value)}
+                    disabled={!isEditing}
+                  />
+                  <Input
+                    label="Pincode"
+                    value={profileData.pincode || ""}
+                    placeholder="Pincode"
+                    maxLength={6}
+                    onChange={(e) => handleChange("pincode", e.target.value.replace(/\D/g, ""))}
+                    disabled={!isEditing}
+                  />
+                </div>
               </div>
 
               <div className="mt-5">
                 <p className="mb-2 text-sm font-bold text-slate-700">Map location</p>
                 {isEditing ? (
-                  <LocationPicker value={location} onChange={setLocation} height={260} />
+                  <LocationPicker value={location} onChange={handleLocationChange} height={260} />
                 ) : (
                   <p className="flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
                     <MapPin size={16} className="mt-0.5 shrink-0 text-orange-500" />
                     {location?.address ?? "No location set"}
                   </p>
                 )}
-                <p className="mt-2 text-xs text-slate-400">Used to show service centers near you on Dashboard and Service Centers.</p>
+                <p className="mt-2 text-xs text-slate-400">Select location on map to auto-fill address, city, state and pincode.</p>
               </div>
             </div>
 
-            {/* Save Button & Status Message (Only visible when editing) */}
+            {/* Save Button */}
             <div className="mt-8 flex items-center justify-between pt-4 border-t border-slate-100">
               <span
                 className={`text-sm font-bold text-emerald-600 transition flex items-center gap-1.5 ${
@@ -215,24 +233,6 @@ export default function Profile() {
 
           </form>
         </div>
-
-        <Link
-          href="/customer/vehicles"
-          className="card mx-auto mt-5 flex max-w-3xl items-center justify-between rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
-        >
-          <span className="flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-orange-50 text-orange-500">
-              <Car size={20} />
-            </span>
-            <span>
-              <span className="block font-black text-slate-900">My Garage</span>
-              <span className="block text-xs text-slate-500">
-                {vehicles.length} vehicle{vehicles.length === 1 ? "" : "s"} · manage and view service history
-              </span>
-            </span>
-          </span>
-          <ChevronRight size={18} className="text-slate-400" />
-        </Link>
       </div>
     </>
   );

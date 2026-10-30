@@ -29,6 +29,9 @@ export default function ManagerStaff() {
   const [showForm, setShowForm] = useState(false);
   const [credentials, setCredentials] = useState<Credentials | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  
+  // State for staff removal confirmation modal
+  const [staffToRemove, setStaffToRemove] = useState<StaffMember | null>(null);
 
   useEffect(() => {
     restoreStaff();
@@ -80,16 +83,17 @@ export default function ManagerStaff() {
     setCredentials({ owner: m.name, centre: tenant.name, mobile: m.mobile, password, staffRole: "Staff (Driver)", reset: true });
   }
 
-  function remove(m: StaffMember) {
-    if (!tenant || m.role !== "staff") return;
-    const open = openOrders(m.id);
-    const extra = open ? ` They have ${open} open order(s), which will need a new staff member.` : "";
-    if (!window.confirm(`Remove ${m.name}? They will no longer be able to sign in.${extra}`)) return;
+  function confirmRemoveStaff() {
+    if (!tenant || !staffToRemove || staffToRemove.role !== "staff") return;
+    const m = staffToRemove;
     store.dispatch({ type: "staff/deleted", payload: m.id });
     removeAccount(m.mobile);
     store.dispatch({ type: "tenants/updated", payload: { ...tenant, users: Math.max(1, tenant.users - 1) } });
     setNotice(`${m.name} was removed.`);
+    setStaffToRemove(null);
   }
+
+  const openCount = staffToRemove ? openOrders(staffToRemove.id) : 0;
 
   return (
     <>
@@ -133,7 +137,7 @@ export default function ManagerStaff() {
               <button type="button" onClick={() => resetPassword(m)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
                 Reset password
               </button>
-              <button type="button" onClick={() => remove(m)} aria-label={`Remove ${m.name}`} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50">
+              <button type="button" onClick={() => setStaffToRemove(m)} aria-label={`Remove ${m.name}`} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50">
                 Remove
               </button>
             </div>,
@@ -143,6 +147,40 @@ export default function ManagerStaff() {
           <p className="py-10 text-center text-sm text-slate-500">No staff yet. Add your first staff member.</p>
         )}
       </div>
+
+      {/* Custom Staff Removal Confirmation Modal */}
+      {staffToRemove && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div role="dialog" aria-modal="true" aria-label="Remove staff confirmation" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900">Remove staff member</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Are you sure you want to remove <strong className="text-slate-900">{staffToRemove.name}</strong>? They will no longer be able to sign in.
+              {openCount > 0 && (
+                <span className="mt-1 block text-amber-700 font-semibold">
+                  They have {openCount} open order(s), which will need a new staff member.
+                </span>
+              )}
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setStaffToRemove(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmRemoveStaff}
+                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {credentials && <WhatsAppCredentialsModal {...credentials} variant="staff" onClose={() => setCredentials(null)} />}
     </>
   );

@@ -37,8 +37,17 @@ export default function OwnerProfilePage() {
     setSaved(false);
   };
 
+  // Updated to auto-fill address, city, state, and pincode from map/geocoder selection
   const setLocation = (loc: PickedLocation) => {
-    setForm((f) => ({ ...f, lat: loc.lat, lng: loc.lng, address: f.address.trim() ? f.address : loc.address === "Finding address..." ? "" : loc.address }));
+    setForm((f) => ({
+      ...f,
+      lat: loc.lat,
+      lng: loc.lng,
+      address: f.address.trim() ? f.address : loc.address === "Finding address..." ? "" : loc.address,
+      city: f.city.trim() ? f.city : loc.city ?? f.city,
+      state: f.state.trim() ? f.state : loc.state ?? f.state,
+      pincode: f.pincode.trim() ? f.pincode : loc.pincode ?? f.pincode,
+    }));
     setSaved(false);
   };
 
@@ -79,13 +88,12 @@ export default function OwnerProfilePage() {
     router.push("/login");
   };
 
-  const location: PickedLocation | null = form.lat !== undefined && form.lng !== undefined ? { lat: form.lat, lng: form.lng, address: form.address } : null;
+  const location: PickedLocation | null = form.lat !== undefined && form.lng !== undefined ? { lat: form.lat, lng: form.lng, address: form.address, city: form.city, state: form.state, pincode: form.pincode } : null;
   const complete = isProfileComplete(profile);
 
   return (
     <>
       <Topbar title="Profile" subtitle="Your service centre details" />
-      {/* Opens on its own after the first login with a temporary password. */}
       <div className="container space-y-5">
         {loaded && !isListedOnApp(profile) && (
           <div role="status" className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-800">

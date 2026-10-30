@@ -44,6 +44,9 @@ export default function MyRates() {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [previewKind, setPreviewKind] = useState<VehicleKind>("Car");
+  
+  // State for rate delete confirmation popup
+  const [rateToDelete, setRateToDelete] = useState<{ group: Group; rate: RateItem } | null>(null);
 
   /** Every change is saved straight away, so what customers see is always what is listed here. */
   function saveRate(group: Group, rate: RateItem) {
@@ -54,10 +57,12 @@ export default function MyRates() {
     setNotice(`${rate.name} (${vehicleLabel[rate.vehicle]}) ${exists ? "updated" : "added"}.`);
   }
 
-  function removeRate(group: Group, rate: RateItem) {
-    if (!window.confirm(`Delete "${rate.name}" for ${vehicleLabel[rate.vehicle]}? Customers will no longer see this rate.`)) return;
+  function confirmDeleteRate() {
+    if (!rateToDelete) return;
+    const { group, rate } = rateToDelete;
     save({ ...data, [group]: data[group].filter((r) => r.id !== rate.id) });
     setNotice(`${rate.name} (${vehicleLabel[rate.vehicle]}) deleted.`);
+    setRateToDelete(null);
   }
 
   const centerId = tenant?.id ?? "";
@@ -98,7 +103,7 @@ export default function MyRates() {
                 <div className="flex items-center gap-2">
                   <b className="mr-2 text-slate-900">{rateLabel(r.price)}</b>
                   <button type="button" onClick={() => setEditing({ group, rate: r })} aria-label={`Edit ${r.name}, ${vehicleLabel[r.vehicle]}`} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"><Pencil size={14} /> Edit</button>
-                  <button type="button" onClick={() => removeRate(group, r)} aria-label={`Delete ${r.name}, ${vehicleLabel[r.vehicle]}`} className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"><Trash2 size={14} /> Delete</button>
+                  <button type="button" onClick={() => setRateToDelete({ group, rate: r })} aria-label={`Delete ${r.name}, ${vehicleLabel[r.vehicle]}`} className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"><Trash2 size={14} /> Delete</button>
                 </div>
               </li>
             ))}
@@ -168,6 +173,34 @@ export default function MyRates() {
           onSave={(rate) => saveRate(editing.group, rate)}
           onClose={() => setEditing(null)}
         />
+      )}
+
+      {/* Custom Delete Rate Confirmation Modal */}
+      {rateToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div role="dialog" aria-modal="true" aria-label="Delete rate confirmation" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900">Delete rate</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Are you sure you want to delete <strong className="text-slate-900">{rateToDelete.rate.name}</strong>? Customers will no longer see this rate.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setRateToDelete(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteRate}
+                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700"
+              >
+                Delete rate
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
