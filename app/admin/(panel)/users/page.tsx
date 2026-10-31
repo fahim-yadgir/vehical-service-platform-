@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import Topbar from "../../../../components/navbar/Topbar";
 import DataTable from "../../../../components/tables/DataTable";
 import Badge from "../../../../components/ui/Badge";
@@ -25,7 +25,6 @@ export default function Users() {
   const [role, setRole] = useState<UserRole | "all">("all");
   const [tenant, setTenant] = useState("all");
   const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
   const [viewingId, setViewingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,9 +51,6 @@ export default function Users() {
     (tenant === "all" || u.tenant === tenant) && (!q || u.name.toLowerCase().includes(q) || u.mobile.includes(q));
   const scoped = users.filter(matches);
   const filtered = scoped.filter((u) => role === "all" || u.role === role);
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const current = Math.min(page, pageCount);
-  const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
   const viewing = users.find((u) => u.id === viewingId) ?? null;
 
   const tab = (value: UserRole | "all", label: string) => (
@@ -62,7 +58,7 @@ export default function Users() {
       key={value}
       type="button"
       aria-pressed={role === value}
-      onClick={() => { setRole(value); setPage(1); }}
+      onClick={() => setRole(value)}
       className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition ${role === value ? "bg-orange-50 text-orange-700" : "text-slate-600 hover:bg-slate-50"}`}
     >
       {label} <span className="opacity-70">{value === "all" ? scoped.length : scoped.filter((u) => u.role === value).length}</span>
@@ -83,7 +79,7 @@ export default function Users() {
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 value={query}
-                onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search name or mobile"
                 aria-label="Search users"
                 className="input"
@@ -92,7 +88,7 @@ export default function Users() {
             </label>
             <select
               value={tenant}
-              onChange={(e) => { setTenant(e.target.value); setPage(1); }}
+              onChange={(e) => setTenant(e.target.value)}
               aria-label="Filter by tenant"
               className="input"
               style={{ width: "auto" }}
@@ -104,15 +100,18 @@ export default function Users() {
         </div>
 
         <DataTable
+          key={role + tenant}
+          pageSize={PAGE_SIZE}
+          exportName="users"
           headers={["ID", "Name", "Role", "Mobile", "Tenant / Centre", "Status", "Action"]}
-          rows={rows.map((u) => [
+          rows={filtered.map((u) => [
             <span key="id" className="font-mono text-xs">{u.id}</span>,
             <b key="n">{u.name}</b>,
             <Badge key="r" tone={u.role === "Customer" ? "blue" : u.role === "Owner" ? "yellow" : "gray"}>{u.role}</Badge>,
             u.mobile,
             u.tenant,
             <Badge key="s" tone={blocked.includes(u.id) ? "red" : "green"}>{blocked.includes(u.id) ? "Blocked" : "Active"}</Badge>,
-            <div key="a" className="flex items-center gap-2">
+            <div key="a" className="flex flex-nowrap items-center gap-2 whitespace-nowrap *:shrink-0">
               <button type="button" onClick={() => setViewingId(u.id)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700">View</button>
               <button
                 type="button"
@@ -128,23 +127,6 @@ export default function Users() {
           <p className="py-10 text-center text-sm text-slate-500">
             {users.length === 0 ? "No users yet. They appear here as tenants are created, staff are added and customers register." : "No users match your search."}
           </p>
-        )}
-
-        {pageCount > 1 && (
-          <nav className="mt-4 flex flex-wrap items-center justify-between gap-3" aria-label="User pagination">
-            <p className="text-sm text-slate-500">
-              Showing {(current - 1) * PAGE_SIZE + 1}–{Math.min(current * PAGE_SIZE, filtered.length)} of {filtered.length} users
-            </p>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setPage(Math.max(1, current - 1))} disabled={current === 1} aria-label="Previous page" className="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
-                <ChevronLeft size={18} />
-              </button>
-              <span className="min-w-20 text-center text-sm font-semibold text-slate-700" aria-live="polite">Page {current} of {pageCount}</span>
-              <button type="button" onClick={() => setPage(Math.min(pageCount, current + 1))} disabled={current === pageCount} aria-label="Next page" className="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40">
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          </nav>
         )}
       </div>
 

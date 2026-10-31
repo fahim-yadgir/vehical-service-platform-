@@ -101,24 +101,6 @@ export default function OwnerOrders() {
         ].some((v) => v.toLowerCase().includes(q))),
   );
 
-  // who is doing what (matched by name for now; the backend will use ids)
-  const activity = team.map((m) => {
-    const isManager = m.role === "Manager";
-    const open = orders.filter(
-      (o) =>
-        !isClosed(o.status) &&
-        (isManager ? o.supervisedBy === m.name : o.assignedStaffId === m.id),
-    ).length;
-    const done = orders.filter(
-      (o) =>
-        o.status === "completed" &&
-        (isManager
-          ? o.completedBy?.name === m.name
-          : o.assignedStaffId === m.id),
-    ).length;
-    return { m, open, done };
-  });
-
   return (
     <>
       <Topbar
@@ -179,6 +161,10 @@ export default function OwnerOrders() {
           )}
 
           <DataTable
+            key={filter}
+            searchable={false}
+            exportName="orders"
+            plainColumns={["Assigned to", "Change status"]}
             headers={[
               "Booking",
               "Customer",
@@ -244,29 +230,6 @@ export default function OwnerOrders() {
               {orders.length === 0
                 ? "No orders yet."
                 : "No orders match this filter."}
-            </p>
-          )}
-        </section>
-
-        <section className="space-y-3">
-          <div>
-            <h2 className="text-lg font-black text-slate-900">Team activity</h2>
-            <p className="text-sm text-slate-500">
-              Open = orders in progress now. Completed = orders finished.
-            </p>
-          </div>
-          <DataTable
-            headers={["Person", "Role", "Open orders", "Completed"]}
-            rows={activity.map(({ m, open, done }) => [
-              <b key="n">{m.name}</b>,
-              m.role === "staff" ? "Staff / Driver" : "Manager",
-              String(open),
-              String(done),
-            ])}
-          />
-          {activity.length === 0 && (
-            <p className="py-6 text-center text-sm text-slate-500">
-              No team yet. Add managers and staff from My Staff.
             </p>
           )}
         </section>

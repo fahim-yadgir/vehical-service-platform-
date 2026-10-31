@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import Topbar from "../../../../components/navbar/Topbar";
 import DataTable from "../../../../components/tables/DataTable";
 import Badge from "../../../../components/ui/Badge";
@@ -73,10 +72,10 @@ export default function Tenants() {
   const items = useAppSelector((state) => state.tenants);
   const staff = useAppSelector((state) => state.staff);
   const selectedFilter = useAppSelector((state) => state.tenantFilter);
-  const [currentPage, setCurrentPage] = useState(1);
   const [showTenantForm, setShowTenantForm] = useState(false);
   const [tenantToEdit, setTenantToEdit] = useState<Tenant | null>(null);
-  const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null); // Added state for custom delete confirmation
+  const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
+  const [tenantToReset, setTenantToReset] = useState<Tenant | null>(null);
   const [credentials, setCredentials] = useState<{
     owner: string;
     centre: string;
@@ -89,7 +88,7 @@ export default function Tenants() {
     tone: "ok" | "warn";
     text: string;
   } | null>(null);
-  
+
   const viewing = items.find((tenant) => tenant.id === viewingId) ?? null;
   const pageSize = 10;
   const today = new Date();
@@ -98,11 +97,6 @@ export default function Tenants() {
   const thirtyDays = 30 * 24 * 60 * 60 * 1000;
   const filteredItems = items.filter((tenant) =>
     matchesFilter(tenant, selectedFilter, todayTime, thirtyDays),
-  );
-  const pageCount = Math.ceil(filteredItems.length / pageSize);
-  const pageItems = filteredItems.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
   );
 
   useEffect(() => {
@@ -170,7 +164,8 @@ export default function Tenants() {
     });
   }
 
-  async function resetOwnerPassword(tenant: Tenant) {
+  // Step 1: the Reset password button. Opens the confirm popup (needs an owner mobile).
+  function askResetOwnerPassword(tenant: Tenant) {
     if (!tenant.mobile) {
       setNotice({
         tone: "warn",
@@ -178,27 +173,31 @@ export default function Tenants() {
       });
       return;
     }
-    if (
-      !window.confirm(
-        `Reset the password for ${tenant.owner} (${tenant.name})? The old password will stop working.`,
-      )
-    )
-      return;
+    setTenantToReset(tenant);
+  }
+
+  // Step 2: confirmed. New temporary password, shown once and sent on WhatsApp.
+  async function confirmResetOwnerPassword() {
+    const tenant = tenantToReset;
+    const mobile = tenant?.mobile;
+    if (!tenant || !mobile) return;
+    setTenantToReset(null);
     const password = generateTempPassword();
+    // Replaces the owner's login; they must change the new password on next sign-in.
     await createAccount({
-      mobile: tenant.mobile,
+      mobile,
       email: tenant.email,
       name: tenant.owner,
       role: "owner",
       tenantId: tenant.id,
       password,
-      createdAt: findAccount(tenant.mobile)?.createdAt,
+      createdAt: findAccount(mobile)?.createdAt,
     });
     setViewingId(null);
     setCredentials({
       owner: tenant.owner,
       centre: tenant.name,
-      mobile: tenant.mobile,
+      mobile,
       password,
       reset: true,
     });
@@ -234,7 +233,6 @@ export default function Tenants() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  // Updated delete function to trigger custom popup instead of window.confirm
   function confirmDeleteTenant() {
     if (!tenantToDelete) return;
     const tenant = tenantToDelete;
@@ -246,13 +244,11 @@ export default function Tenants() {
       setShowTenantForm(false);
       setTenantToEdit(null);
     }
-    setCurrentPage(1);
     setTenantToDelete(null);
   }
 
   function changeFilter(filter: TenantFilter) {
     store.dispatch({ type: "tenants/filterChanged", payload: filter });
-    setCurrentPage(1);
   }
 
   return (
@@ -453,7 +449,11 @@ export default function Tenants() {
           </section>
         )}
         <div className="min-w-0">
+          {/* The table pages, searches, sorts and exports ALL filtered tenants itself.
+              key={selectedFilter}: a new filter starts the table again from page 1. */}
           <DataTable
+            key={selectedFilter}
+            pageSize={pageSize}
             headers={[
               "Tenant",
               "Owner",
@@ -463,7 +463,8 @@ export default function Tenants() {
               "Status",
               "Action",
             ]}
-            rows={pageItems.map((tenant) => [
+            exportName="tenants"
+            rows={filteredItems.map((tenant) => [
               <b key="name">{tenant.name}</b>,
               tenant.owner,
               String(tenantHeadcount(staff, tenant.id).total),
@@ -481,7 +482,8 @@ export default function Tenants() {
               >
                 {tenant.status}
               </Badge>,
-              <div key="actions" className="flex flex-wrap items-center gap-2">
+              // one line: the table scrolls sideways instead of wrapping the buttons
+              <div key="actions" className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setViewingId(tenant.id)}
@@ -505,14 +507,14 @@ export default function Tenants() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => resetOwnerPassword(tenant)}
+                  onClick={() => askResetOwnerPassword(tenant)}
                   className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
                 >
                   Reset password
                 </button>
                 <button
                   type="button"
-                  onClick={() => setTenantToDelete(tenant)} // Triggers custom delete confirmation popup
+                  onClick={() => setTenantToDelete(tenant)}
                   aria-label={`Delete ${tenant.name}`}
                   className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"
                 >
@@ -528,58 +530,23 @@ export default function Tenants() {
                 : "No tenants match this filter."}
             </p>
           )}
-          {pageCount > 1 && (
-            <nav
-              className="mt-4 flex flex-wrap items-center justify-between gap-3"
-              aria-label="Tenant pagination"
-            >
-              <p className="text-sm text-slate-500">
-                Showing {(currentPage - 1) * pageSize + 1}–
-                {Math.min(currentPage * pageSize, filteredItems.length)} of{" "}
-                {filteredItems.length} tenants
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCurrentPage((page) => Math.max(1, page - 1))
-                  }
-                  disabled={currentPage === 1}
-                  aria-label="Previous page"
-                  className="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <span
-                  className="min-w-20 text-center text-sm font-semibold text-slate-700"
-                  aria-live="polite"
-                >
-                  Page {currentPage} of {pageCount}
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCurrentPage((page) => Math.min(pageCount, page + 1))
-                  }
-                  disabled={currentPage === pageCount}
-                  aria-label="Next page"
-                  className="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-            </nav>
-          )}
         </div>
       </div>
-      
-      {/* Custom Delete Confirmation Modal */}
+
+      {/* Delete confirmation */}
       {tenantToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div role="dialog" aria-modal="true" aria-label="Delete confirmation" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Delete confirmation"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
             <h3 className="text-lg font-bold text-slate-900">Delete tenant</h3>
             <p className="mt-2 text-sm text-slate-600">
-              Are you sure you want to delete <strong className="text-slate-900">{tenantToDelete.name}</strong>? This action cannot be undone.
+              Are you sure you want to delete{" "}
+              <strong className="text-slate-900">{tenantToDelete.name}</strong>?
+              This action cannot be undone.
             </p>
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
@@ -595,6 +562,44 @@ export default function Tenants() {
                 className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700"
               >
                 Delete tenant
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset owner password confirmation */}
+      {tenantToReset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Reset password confirmation"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <h3 className="text-lg font-bold text-slate-900">
+              Reset owner password
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Reset the password for{" "}
+              <strong className="text-slate-900">{tenantToReset.owner}</strong>{" "}
+              ({tenantToReset.name})? The old password will stop working and a
+              new temporary one will be shown.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setTenantToReset(null)}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmResetOwnerPassword}
+                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-700"
+              >
+                Reset password
               </button>
             </div>
           </div>
