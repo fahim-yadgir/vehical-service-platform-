@@ -100,7 +100,7 @@ export default function Register() {
   }
 
   return (
-    <main className="mesh min-h-screen">
+    <main className="mesh safe-top safe-bottom min-h-screen">
       <div className="container flex min-h-screen items-center justify-center">
         <div className="card w-full max-w-2xl p-7 sm:p-10">
           {done ? (

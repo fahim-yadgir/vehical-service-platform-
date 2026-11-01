@@ -13,7 +13,7 @@ export default function Topbar({
   const { available, desktopOpen, mobileOpen, toggleMobile } = useSidebar();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl">
+    <header className="safe-top sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl">
       <div className="container flex items-center justify-between gap-2 py-1">
         <div className="flex min-w-0 items-center gap-3">
           {available && (

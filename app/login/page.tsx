@@ -119,7 +119,7 @@ export default function Login() {
   };
 
   return (
-    <main className="mesh min-h-screen">
+    <main className="mesh safe-top safe-bottom min-h-screen">
       <div className="container grid min-h-screen items-center gap-10 lg:grid-cols-2">
         {/* LEFT SECTION */}
         <section className="fade-up hidden lg:block">

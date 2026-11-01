@@ -43,7 +43,7 @@ export default function UserMenu() {
 
   const logout = () => {
     clearSession();
-    router.push(role === "admin" ? "/admin/login" : "/login");
+    router.replace(role === "admin" ? "/admin/login" : "/login");
   };
 
   return (

@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useBackHandler } from "@/lib/native/backStack";
 import {
   Bell,
   House,
@@ -70,10 +71,11 @@ export default function Sidebar({ role }: { role: Role }) {
   const { desktopOpen, mobileOpen, closeMobile, toggleDesktop } = useSidebar();
   const pathname = usePathname();
   const router = useRouter();
+  useBackHandler(mobileOpen, closeMobile);
 
   const logout = () => {
     clearSession();
-    router.push(role === "admin" ? "/admin/login" : "/login");
+    router.replace(role === "admin" ? "/admin/login" : "/login");
   };
 
   return (
@@ -101,7 +103,7 @@ export default function Sidebar({ role }: { role: Role }) {
       </button>
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 shrink-0 flex-col border-r border-slate-200 bg-white p-5 shadow-xl transition-[margin-left,transform,visibility] duration-200 ease-out md:sticky md:left-auto md:top-0 md:h-screen md:translate-x-0 md:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 shrink-0 flex-col border-r border-slate-200 bg-white p-5 pb-[calc(1.25rem+var(--sab))] pl-[calc(1.25rem+var(--sal))] pt-[calc(1.25rem+var(--sat))] shadow-xl transition-[margin-left,transform,visibility] duration-200 ease-out md:sticky md:left-auto md:top-0 md:h-screen md:translate-x-0 md:shadow-none ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } ${desktopOpen ? "md:ml-0" : "md:invisible md:-ml-72"}`}
       >

@@ -85,7 +85,7 @@ export default function OwnerProfilePage() {
   const logout = () => {
     clearSession();
     clearOwnerTenantId();
-    router.push("/login");
+    router.replace("/login");
   };
 
   const location: PickedLocation | null = form.lat !== undefined && form.lng !== undefined ? { lat: form.lat, lng: form.lng, address: form.address, city: form.city, state: form.state, pincode: form.pincode } : null;
