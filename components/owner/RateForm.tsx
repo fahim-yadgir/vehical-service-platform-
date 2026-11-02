@@ -89,13 +89,13 @@ export default function RateForm({ title, initial, presetName = "", suggestions,
 
           <label className="block space-y-2">
             <span className="text-sm font-bold text-slate-700">Price (₹)</span>
-            <input value={price} onChange={(e) => { setPrice(e.target.value.replace(/\D/g, "").slice(0, 7)); setErrors({ ...errors, price: undefined }); }} className="input" inputMode="numeric" aria-invalid={!!errors.price} placeholder="799" />
+            <input maxLength={12} value={price} onChange={(e) => { setPrice(e.target.value.replace(/\D/g, "").slice(0, 7)); setErrors({ ...errors, price: undefined }); }} className="input" inputMode="numeric" aria-invalid={!!errors.price} placeholder="799" />
             {errors.price && <span role="alert" className="block text-xs font-semibold text-rose-600">{errors.price}</span>}
           </label>
 
           <label className="block space-y-2">
             <span className="text-sm font-bold text-slate-700">Note (optional)</span>
-            <input value={note} onChange={(e) => setNote(e.target.value)} className="input" placeholder="e.g. Includes filter and 3.5 L engine oil" />
+            <input maxLength={256} value={note} onChange={(e) => setNote(e.target.value)} className="input" placeholder="e.g. Includes filter and 3.5 L engine oil" />
           </label>
 
           <div className="flex flex-wrap items-center gap-2">

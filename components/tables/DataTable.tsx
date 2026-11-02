@@ -178,6 +178,7 @@ export default function DataTable({
             <label className="relative block w-full max-w-xs">
               <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
               <input
+                maxLength={42}
                 aria-label="Search table"
                 className="input w-full !pl-9"
                 placeholder="Search all columns…"

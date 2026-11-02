@@ -47,9 +47,9 @@ export default function ChangePasswordCard() {
         <h3 className="text-lg font-black text-slate-900">Change password</h3>
         <p className="mt-1 text-sm text-slate-500">Use at least 8 characters with a letter and a number.</p>
       </div>
-      <PasswordInput label="Current password" value={form.current} onChange={set("current")} autoComplete="current-password" required />
-      <PasswordInput label="New password" value={form.next} onChange={set("next")} autoComplete="new-password" required />
-      <PasswordInput label="Confirm new password" value={form.confirm} onChange={set("confirm")} autoComplete="new-password" required />
+      <PasswordInput maxLength={32} label="Current password" value={form.current} onChange={set("current")} autoComplete="current-password" required />
+      <PasswordInput maxLength={32} label="New password" value={form.next} onChange={set("next")} autoComplete="new-password" required />
+      <PasswordInput maxLength={32} label="Confirm new password" value={form.confirm} onChange={set("confirm")} autoComplete="new-password" required />
       {error && <p role="alert" className="text-sm font-semibold text-rose-600">{error}</p>}
       {done && (
         <p role="status" className="flex items-center gap-1.5 text-sm font-bold text-emerald-600">

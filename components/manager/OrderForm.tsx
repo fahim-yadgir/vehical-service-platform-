@@ -111,10 +111,10 @@ export default function OrderForm({
             onChange={(e) => set("registration", e.target.value)} />
         </Field>
         <Field label="Brand" error={errors.brand}>
-          <input className="input" value={f.brand} onChange={(e) => set("brand", e.target.value)} />
+          <input maxLength={32} className="input" value={f.brand} onChange={(e) => set("brand", e.target.value)} />
         </Field>
         <Field label="Model" error={errors.model}>
-          <input className="input" value={f.model} onChange={(e) => set("model", e.target.value)} />
+          <input maxLength={32} className="input" value={f.model} onChange={(e) => set("model", e.target.value)} />
         </Field>
         <Field label="Year (optional)" error={errors.year}>
           <input className="input" inputMode="numeric" maxLength={4} value={f.year}
@@ -142,11 +142,11 @@ export default function OrderForm({
           </Field>
         )}
         <Field label="Amount (₹)" error={errors.amount}>
-          <input className="input" inputMode="numeric" value={f.amount}
+          <input maxLength={32} className="input" inputMode="numeric" value={f.amount}
             onChange={(e) => set("amount", e.target.value.replace(/\D/g, ""))} />
         </Field>
         <Field label="Date" error={errors.date}>
-          <input className="input" type="date" value={f.date} onChange={(e) => set("date", e.target.value)} />
+          <input maxLength={32} className="input" type="date" value={f.date} onChange={(e) => set("date", e.target.value)} />
         </Field>
         <Field label="Assign staff (optional)">
           <select className="input" value={f.staffId} onChange={(e) => set("staffId", e.target.value)}>

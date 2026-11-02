@@ -152,6 +152,7 @@ export default function VehiclesPage() {
                       Brand <span className="text-red-500">*</span>
                     </label>
                     <input
+                      maxLength={30}
                       type="text"
                       required
                       placeholder="e.g. Honda, Tata"
@@ -166,6 +167,7 @@ export default function VehiclesPage() {
                       Model <span className="text-red-500">*</span>
                     </label>
                     <input
+                      maxLength={30}
                       type="text"
                       required
                       placeholder="e.g. City, Nexon"
@@ -198,6 +200,7 @@ export default function VehiclesPage() {
                       Chassis No (Optional)
                     </label>
                     <input
+                     maxLength={30}
                       type="text"
                       placeholder="Enter chassis no"
                       value={formData.chassisNo}
@@ -211,6 +214,7 @@ export default function VehiclesPage() {
                       Engine No (Optional)
                     </label>
                     <input
+                      maxLength={30}
                       type="text"
                       placeholder="Enter engine no"
                       value={formData.engineNo}
@@ -225,6 +229,7 @@ export default function VehiclesPage() {
                     Manufacturing Year (Optional)
                   </label>
                   <input
+                    maxLength={30}
                     type="number"
                     placeholder="e.g. 2023"
                     value={formData.year}

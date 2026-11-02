@@ -121,6 +121,8 @@ export default function Profile() {
               </h3>
               <div className="grid gap-5 sm:grid-cols-2">
                 <Input
+                  type="text"
+                  maxLength={32}
                   label="Full Name"
                   value={profileData.fullName}
                   onChange={(e) => handleChange("fullName", e.target.value)}
@@ -137,6 +139,7 @@ export default function Profile() {
                   required
                 />
                 <Input
+                  maxLength={40}
                   label="Email Address"
                   type="email"
                   value={profileData.email}
@@ -163,6 +166,7 @@ export default function Profile() {
               
               <div className="space-y-4">
                 <Input
+                  maxLength={120}
                   label="Street Address / Flat / Building"
                   value={profileData.address}
                   placeholder="e.g. Flat 402, Sunrise Apartments"
@@ -172,6 +176,7 @@ export default function Profile() {
                 
                 <div className="grid gap-4 sm:grid-cols-3">
                   <Input
+                    maxLength={40}
                     label="City"
                     value={profileData.city || ""}
                     placeholder="City"
@@ -179,6 +184,7 @@ export default function Profile() {
                     disabled={!isEditing}
                   />
                   <Input
+                    maxLength={40}
                     label="State"
                     value={profileData.state || ""}
                     placeholder="State"
@@ -186,10 +192,11 @@ export default function Profile() {
                     disabled={!isEditing}
                   />
                   <Input
+                    
                     label="Pincode"
                     value={profileData.pincode || ""}
                     placeholder="Pincode"
-                    maxLength={6}
+                    maxLength={10}
                     onChange={(e) => handleChange("pincode", e.target.value.replace(/\D/g, ""))}
                     disabled={!isEditing}
                   />

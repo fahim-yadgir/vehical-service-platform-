@@ -49,8 +49,8 @@ export default function ForcePasswordChange() {
           </div>
         </div>
 
-        <PasswordInput label="New password" value={next} onChange={(e) => { setNext(e.target.value); setError(""); }} autoComplete="new-password" required autoFocus />
-        <PasswordInput label="Confirm new password" value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(""); }} autoComplete="new-password" required />
+        <PasswordInput maxLength={32} label="New password" value={next} onChange={(e) => { setNext(e.target.value); setError(""); }} autoComplete="new-password" required autoFocus />
+        <PasswordInput maxLength={32} label="Confirm new password" value={confirm} onChange={(e) => { setConfirm(e.target.value); setError(""); }} autoComplete="new-password" required />
         <p className="text-xs text-slate-400">At least 8 characters, with a letter and a number.</p>
 
         {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}

@@ -54,6 +54,8 @@ export default function AdminLogin() {
 
           <form onSubmit={submit} className="mt-7 space-y-4">
             <Input
+              inputMode="numeric"
+              maxLength={10}
               required
               label="Mobile Number"
               type="tel"
@@ -66,6 +68,7 @@ export default function AdminLogin() {
               required
               label="Password"
               type="password"
+              maxLength={32}
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

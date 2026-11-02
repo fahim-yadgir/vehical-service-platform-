@@ -58,9 +58,9 @@ export default function AdminProfile() {
             <p className="mt-1 text-sm text-slate-500">Use at least 8 characters with a letter and a number.</p>
           </div>
 
-          <PasswordInput label="Current password" value={form.current} onChange={set("current")} autoComplete="current-password" required />
-          <PasswordInput label="New password" value={form.next} onChange={set("next")} autoComplete="new-password" required />
-          <PasswordInput label="Confirm new password" value={form.confirm} onChange={set("confirm")} autoComplete="new-password" required />
+          <PasswordInput label="Current password" maxLength={32} value={form.current} onChange={set("current")} autoComplete="current-password" required />
+          <PasswordInput label="New password" maxLength={32} value={form.next} onChange={set("next")} autoComplete="new-password" required />
+          <PasswordInput label="Confirm new password" maxLength={32} value={form.confirm} onChange={set("confirm")} autoComplete="new-password" required />
 
           {error && <p role="alert" className="text-sm font-semibold text-rose-600">{error}</p>}
           {done && (

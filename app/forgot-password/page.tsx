@@ -78,6 +78,7 @@ export default function ForgotPassword() {
 
               <form onSubmit={submit} className="mt-7 space-y-4" noValidate>
                 <Input
+                  maxLength={32}
                   required
                   label="Full name"
                   placeholder="Your name"
@@ -97,6 +98,7 @@ export default function ForgotPassword() {
                   onChange={(e) => setMobile(e.target.value.replace(/\D/g, ""))}
                 />
                 <Input
+                  maxLength={42}
                   required
                   label="Email"
                   type="email"

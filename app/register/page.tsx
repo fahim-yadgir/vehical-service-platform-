@@ -160,6 +160,7 @@ export default function Register() {
                 {step === 1 && (
                   <div className="mt-7 grid gap-5 sm:grid-cols-2">
                     <Input
+                      maxLength={32}
                       required
                       label="Full name *"
                       placeholder="Your name"
@@ -182,6 +183,7 @@ export default function Register() {
                     />
                     <div className="sm:col-span-2">
                       <PasswordInput
+                        maxLength={32}
                         required
                         label="Create password *"
                         placeholder="At least 6 characters"
@@ -221,6 +223,7 @@ export default function Register() {
                     </label>
                     <div className="sm:col-span-2">
                       <Input
+                        maxLength={42}
                         label="Email"
                         type="email"
                         placeholder="you@example.com"
@@ -242,6 +245,7 @@ export default function Register() {
                     <LocationPicker value={location} onChange={setLocation} />
 
                     <Input
+                      maxLength={40}
                       required
                       label="House / flat / building *"
                       placeholder="e.g. Flat 402, Sunrise Apartments"
