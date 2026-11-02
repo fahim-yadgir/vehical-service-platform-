@@ -51,6 +51,7 @@ export default function StaffOrders() {
             ))}
           </div>
           <input
+            maxLength={32}
             aria-label="Search orders"
             className="input max-w-xs"
             placeholder="Search order, customer, vehicle…"

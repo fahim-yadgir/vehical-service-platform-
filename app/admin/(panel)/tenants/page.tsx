@@ -366,6 +366,7 @@ export default function Tenants() {
                 </span>
                 <input
                   name="name"
+                  maxLength={32}
                   required
                   className="input"
                   defaultValue={tenantToEdit?.name ?? ""}
@@ -378,6 +379,7 @@ export default function Tenants() {
                 </span>
                 <input
                   name="owner"
+                  maxLength={32}
                   required
                   className="input"
                   defaultValue={tenantToEdit?.owner ?? ""}

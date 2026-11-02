@@ -135,6 +135,7 @@ export default function OwnerOrders() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <input
+                maxLength={32}
                 aria-label="Search orders"
                 className="input max-w-xs"
                 placeholder="Search order, customer, vehicle…"

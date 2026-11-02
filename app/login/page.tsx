@@ -172,6 +172,7 @@ export default function Login() {
 
             <form onSubmit={submit} className="mt-7 space-y-4" noValidate>
               <Input
+                maxLength={32}
                 required
                 label="Mobile number or email"
                 placeholder="9876543210 or you@example.com"
@@ -182,6 +183,7 @@ export default function Login() {
 
               <div>
                 <PasswordInput
+                  maxLength={32}
                   required
                   label="Password"
                   placeholder="••••••••"

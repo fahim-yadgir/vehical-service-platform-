@@ -1,1 +1,12 @@
-import {InputHTMLAttributes} from "react";export default function Input({label,...props}:InputHTMLAttributes<HTMLInputElement>&{label?:string}){return <label className="block space-y-2"><span className="text-sm font-bold text-slate-700">{label}</span><input {...props} className="input"/></label>}
+import { InputHTMLAttributes } from "react";
+export default function Input({
+  label,
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & { label?: string }) {
+  return (
+    <label className="block space-y-2">
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+      <input {...props} className="input" />
+    </label>
+  );
+}
