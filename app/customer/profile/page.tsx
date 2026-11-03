@@ -9,12 +9,19 @@ import LocationPicker, { type PickedLocation } from "../../../components/map/Loc
 import { DEFAULT_LOCATION, loadLocation, saveLocation } from "../../../lib/customerLocation";
 import { useVehicles } from "../../../lib/customerVehicles";
 import { defaultProfile, loadProfile, saveProfile } from "../../../lib/customerProfile";
-import { CheckCircle2, UserRound, ShieldCheck, Edit3, X, MapPin, Car, ChevronRight } from "lucide-react";
-
+import { CheckCircle2, UserRound, ShieldCheck, Edit3, X, MapPin, KeyRound } from "lucide-react";
 
 export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [saved, setSaved] = useState(false);
+  
+  // Password change states
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordToast, setPasswordToast] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
   
   const { vehicles } = useVehicles();
   const [profileData, setProfileData] = useState(defaultProfile);
@@ -49,8 +56,7 @@ export default function Profile() {
     setProfileData({ ...profileData, [field]: value });
   };
 
-  // Function to extract City, State & Pincode when location changes from map
- const handleLocationChange = (newLocation: PickedLocation) => {
+  const handleLocationChange = (newLocation: PickedLocation) => {
     setLocation(newLocation);
     setProfileData((prev) => ({
       ...prev,
@@ -73,10 +79,59 @@ export default function Profile() {
     setTimeout(() => setSaved(false), 2000);
   };
 
+  const handlePasswordChange = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError("");
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError("Please fill in all password fields.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError("New password must be at least 6 characters long.");
+      return;
+    }
+
+    // Simulate successful password update
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setIsChangingPassword(false);
+    
+    // Show toast popup
+    setPasswordToast(true);
+    setTimeout(() => {
+      setPasswordToast(false);
+    }, 3000);
+  };
+
   return (
     <>
       <Topbar title="Profile" subtitle="Manage your personal details and preferences" />
-      <div className="container py-6 md:!pl-6">
+      <div className="container py-6 md:!pl-6 relative">
+        
+        {/* Toast Popup for Password Change */}
+        <div
+          aria-live="polite"
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl bg-slate-900 px-5 py-4 text-white shadow-xl transition-all duration-300 ${
+            passwordToast ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0 pointer-events-none"
+          }`}
+        >
+          <div className="grid size-8 place-items-center rounded-full bg-emerald-500 text-white">
+            <CheckCircle2 size={18} />
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Security</p>
+            <p className="text-sm font-semibold text-white">Password changed successfully!</p>
+          </div>
+        </div>
+
         <div className="card mx-auto max-w-3xl p-6 sm:p-8 bg-white border border-slate-200 rounded-3xl shadow-sm">
           
           {/* Header Section */}
@@ -192,7 +247,6 @@ export default function Profile() {
                     disabled={!isEditing}
                   />
                   <Input
-                    
                     label="Pincode"
                     value={profileData.pincode || ""}
                     placeholder="Pincode"
@@ -239,6 +293,77 @@ export default function Profile() {
             </div>
 
           </form>
+
+          {/* Change Password Section */}
+          <div className="mt-8 pt-6 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">
+                  Security Settings
+                </h3>
+                <p className="text-sm font-bold text-slate-800 mt-0.5">Password</p>
+              </div>
+              {!isChangingPassword && (
+                <button
+                  type="button"
+                  onClick={() => setIsChangingPassword(true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+                >
+                  <KeyRound size={15} /> Change Password
+                </button>
+              )}
+            </div>
+
+            {isChangingPassword && (
+              <form onSubmit={handlePasswordChange} className="mt-4 space-y-4 bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                {passwordError && (
+                  <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs font-semibold text-rose-700">
+                    {passwordError}
+                  </div>
+                )}
+                <Input
+                  label="Current Password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                />
+                <Input
+                  label="New Password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+                <Input
+                  label="Confirm New Password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsChangingPassword(false);
+                      setPasswordError("");
+                      setCurrentPassword("");
+                      setNewPassword("");
+                      setConfirmPassword("");
+                    }}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+                  >
+                    Cancel
+                  </button>
+                  <Button type="submit">
+                    Update Password
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+
         </div>
       </div>
     </>
