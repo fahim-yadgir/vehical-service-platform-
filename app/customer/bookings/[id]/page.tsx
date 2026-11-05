@@ -8,6 +8,7 @@ import Topbar from "../../../../components/navbar/Topbar";
 import Badge from "../../../../components/ui/Badge";
 import { useCustomerOrders } from "../../../../lib/customerOrders";
 import { useAppSelector } from "../../../../lib/redux-store";
+import ReviewCard from "@/components/customer/ReviewCard";
 import {
   changeOrderStatus,
   formatOrderTime,
@@ -150,7 +151,7 @@ export default function BookingTracking() {
             Cancel booking
           </button>
         )}
-
+        <ReviewCard order={order} />
         <section className="card p-6">
           <b>Updates</b>
           <ol className="mt-4 space-y-4">

@@ -17,13 +17,18 @@ import {
   useOrders,
   vehicleName,
 } from "../../../lib/orders";
+import { Stars } from "../../../components/customer/StarRating";
+import { publicName, ratingStats, restoreReviews, reviewsForTenant, useReviews } from "../../../lib/reviews";
 
 export default function OwnerDashboard() {
   const sub = useOwnerSubscription();
   const orders = forTenant(useOrders(), sub?.tenant.id);
+    const tenantReviews = reviewsForTenant(useReviews(), sub?.tenant.id);
+  const stats = ratingStats(tenantReviews);
 
   useEffect(() => {
     restoreOrders();
+    restoreReviews();
   }, []);
 
   const revenue = orders.filter((o) => o.status === "completed").reduce((sum, o) => sum + o.amount, 0);
@@ -39,7 +44,11 @@ export default function OwnerDashboard() {
           <KpiCard icon="rupee" label="Revenue (completed orders)" value={money(revenue)} />
           <KpiCard icon="calendar" label="Orders" value={String(orders.length)} />
           <KpiCard icon="clock" label="Open orders" value={String(open.length)} />
-          <KpiCard icon="star" label="Average rating" value="4.7 / 5" />
+          <KpiCard
+  icon="star"
+  label="Average rating"
+  value={stats.count ? `${stats.average.toFixed(1)} / 5 (${stats.count})` : "No reviews yet"}
+/>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
@@ -77,6 +86,26 @@ export default function OwnerDashboard() {
             </div>
           </section>
         </div>
+              <section className="card p-6">
+          <SectionHeading title="Customer reviews" description="What customers said after their vehicle was delivered" />
+          <div className="space-y-3">
+            {tenantReviews.length === 0 && <p className="muted text-sm">No reviews yet.</p>}
+            {tenantReviews.slice(0, 5).map((r) => (
+              <Link
+                key={r.id}
+                href={`/owner/allorders/${r.orderId}`}
+                className="block rounded-2xl bg-slate-50 p-4 transition hover:bg-slate-100"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <b>{publicName(r.customerName)}</b>
+                  <Stars value={r.rating} />
+                </div>
+                {r.comment && <p className="mt-2 line-clamp-2 text-sm text-slate-700">{r.comment}</p>}
+                <p className="muted mt-1 text-xs">Order {r.orderId}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
       </div>
     </>
   );
