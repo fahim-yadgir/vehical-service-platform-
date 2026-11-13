@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { X } from "lucide-react";
+import {useBackHandler} from "@/lib/native/backStack";
 
 /** Modal that slides up from the bottom on mobile and is centred on larger screens. */
 export default function BottomSheet({
@@ -17,6 +18,7 @@ export default function BottomSheet({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  useBackHandler(open, onClose);
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
@@ -32,13 +34,13 @@ export default function BottomSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/50 pl-[var(--sal)] pr-[var(--sar)] pt-[var(--sat)] sm:items-center sm:p-6" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onClick={(event) => event.stopPropagation()}
-        className="fade-up flex max-h-[88vh] w-full max-w-lg flex-col rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl"
+        className="fade-up flex max-h-[88vh] w-full max-w-lg flex-col rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl pb-[var(--sab)] sm:pb-0"
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <h2 className="text-lg font-black">{title}</h2>

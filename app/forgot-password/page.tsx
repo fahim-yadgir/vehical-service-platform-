@@ -33,7 +33,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <main className="mesh min-h-screen">
+    <main className="mesh safe-top safe-bottom min-h-screen">
       <div className="container flex min-h-screen items-center justify-center">
         <div className="card w-full max-w-md p-7 sm:p-9">
           <Link

@@ -9,7 +9,7 @@ import Topbar from "../../../../components/navbar/Topbar";
 import OrderDetails from "../../../../components/orders/OrderDetails";
 import { useStaffWorkspace } from "../../../../lib/staffSession";
 import { isClosed, vehicleName, verifyDeliveryOtp } from "../../../../lib/orders";
-
+import ProofCapture from "@/components/staff/ProofCapture";
 // Leaflet needs `window`, so the map loads on the client only.
 const RouteMap = dynamic(() => import("../../../../components/map/RouteMap"), {
   ssr: false,
@@ -52,8 +52,11 @@ export default function StaffOrderDetails() {
       <div className="container space-y-5">
         <Link href="/staff/orders" className="btn btn-secondary">← Back to orders</Link>
 
-        {/* PICKUP: staff shows this OTP; the customer types it in their app */}
-        {order.status === "driver_assigned" && order.pickupOtp && (
+            {/* PICKUP, step 1: photograph the vehicle (with location and time) before taking it */}
+        {order.status === "driver_assigned" && !order.proofs?.pickup && <ProofCapture order={order} kind="pickup" />}
+
+        {/* PICKUP, step 2: staff shows this OTP; the customer types it in their app */}
+        {order.status === "driver_assigned" && order.pickupOtp && order.proofs?.pickup && (
           <section className="card space-y-3 border-orange-200 p-6 text-center">
             <h2 className="font-black text-slate-900">Pickup OTP</h2>
             <p className="text-sm text-slate-600">
@@ -63,8 +66,11 @@ export default function StaffOrderDetails() {
           </section>
         )}
 
-        {/* DELIVERY: the customer tells the OTP; staff types it */}
-        {order.status === "ready_for_delivery" && (
+               {/* DELIVERY, step 1: photograph the vehicle (with location and time) before handing it over */}
+        {order.status === "ready_for_delivery" && !order.proofs?.delivery && <ProofCapture order={order} kind="delivery" />}
+
+        {/* DELIVERY, step 2: the customer tells the OTP; staff types it */}
+        {order.status === "ready_for_delivery" && order.proofs?.delivery && (
           <section className="card space-y-4 border-emerald-200 p-6">
             <div>
               <h2 className="font-black text-slate-900">Deliver the vehicle</h2>

@@ -13,3 +13,13 @@
 .sidebar-link{position:relative;transition:.2s}.sidebar-link:hover{transform:translateX(3px)}.sidebar-link.active:before{content:"";position:absolute;left:-1px;top:9px;bottom:9px;width:3px;border-radius:999px;background:var(--orange)}
 .table-row{transition:.2s}.table-row:hover{background:#fafafa}.progress-track{height:8px;border-radius:999px;background:#eef2f6;overflow:hidden}.progress-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#fb923c,#f97316)}
 @media(max-width:768px){.container{padding:18px}}
+/* ---- Safe areas (camera cut-out, status bar, gesture / navigation bar)
+   Capacitor injects --safe-area-inset-* on Android; env() covers iOS and the browser. */
+:root{--sat:var(--safe-area-inset-top,env(safe-area-inset-top,0px));--sar:var(--safe-area-inset-right,env(safe-area-inset-right,0px));--sab:var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px));--sal:var(--safe-area-inset-left,env(safe-area-inset-left,0px))}
+.safe-top{padding-top:var(--sat)}.safe-bottom{padding-bottom:var(--sab)}
+.container{padding-left:max(10px,var(--sal));padding-right:max(10px,var(--sar))}
+@media(max-width:768px){.container{padding-left:max(18px,var(--sal));padding-right:max(18px,var(--sar))}}
+/* full-screen popups: 1rem of space, but never under the bars */
+.overlay-safe{padding:max(1rem,var(--sat)) max(1rem,var(--sar)) max(1rem,var(--sab)) max(1rem,var(--sal))}
+/* only inside the installed app */
+html[data-native]{overscroll-behavior:none;-webkit-tap-highlight-color:transparent}

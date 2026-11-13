@@ -13,9 +13,9 @@ export default function AppShell({
 }) {
   return (
     <SidebarProvider>
-      <div className="min-h-screen bg-[#f7f8fc] md:flex">
+      <div className="min-h-dvh bg-[#f7f8fc] md:flex">
         <Sidebar role={role} />
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="safe-bottom min-w-0 flex-1">{children}</main>
       </div>
     </SidebarProvider>
   );

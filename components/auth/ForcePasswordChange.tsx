@@ -6,6 +6,7 @@ import Button from "../ui/Button";
 import PasswordInput from "../ui/PasswordInput";
 import { clearSession } from "../../lib/auth";
 import { changePassword, clearAccountSession, getSessionAccount, type TenantAccount } from "../../lib/tenantAccounts";
+import { useBackHandler } from "@/lib/native/backStack";
 
 /** Full-screen popup shown after the first login with a temporary password. It cannot be closed without changing the password. */
 export default function ForcePasswordChange() {
@@ -15,6 +16,9 @@ export default function ForcePasswordChange() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Back button handler: active when account exists, but blocks closing (does nothing) since password change is mandatory
+  useBackHandler(!!account, () => {});
 
   useEffect(() => {
     const a = getSessionAccount();
@@ -35,11 +39,11 @@ export default function ForcePasswordChange() {
   const logout = () => {
     clearSession();
     clearAccountSession();
-    router.push("/login");
+    router.replace("/login"); // router.push ki jagah replace for clean history
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4">
+    <div className="overlay-safe fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70">
       <form onSubmit={submit} role="dialog" aria-modal="true" aria-label="Set a new password" className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-center gap-3">
           <div className="grid size-11 place-items-center rounded-xl bg-orange-50 text-orange-500"><KeyRound size={20} /></div>

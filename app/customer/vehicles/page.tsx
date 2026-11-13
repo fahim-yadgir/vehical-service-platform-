@@ -9,12 +9,17 @@ import { useCustomerOrders } from "../../../lib/customerOrders";
 import { ordersForVehicle } from "../../../lib/customerVehicles";
 import { Car, Bike, Truck, Plus, History, X, Store } from "lucide-react";
 import Link from "next/link";
+import { useBackHandler } from "@/lib/native/backStack";
 
 export default function VehiclesPage() {
   const { vehicles: items, setVehicles } = useVehicles();
   const { orders } = useCustomerOrders();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Back button handler for mobile native apps (closes modal on back press if open)
+  useBackHandler(isModalOpen, () => setIsModalOpen(false));
+
   const [formData, setFormData] = useState({
     brand: "",
     model: "",
@@ -202,8 +207,8 @@ export default function VehiclesPage() {
 
         {/* Add Vehicle Modal / Form Popup */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="overlay-safe fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                 <h3 className="text-lg font-bold text-slate-900">
                   Add New Vehicle

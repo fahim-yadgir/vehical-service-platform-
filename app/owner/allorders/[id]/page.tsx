@@ -9,6 +9,8 @@ import AssignStaffSelect from "../../../../components/manager/AssignStaffSelect"
 import OrderStatusSelect from "../../../../components/manager/OrderStatusSelect";
 import { useOwnerSubscription } from "../../../../lib/ownerTenant";
 import { restoreStaff, useAppSelector } from "../../../../lib/redux-store";
+import { Stars } from "../../../../components/customer/StarRating";
+import { restoreReviews, reviewForOrder, useReviews } from "../../../../lib/reviews";
 import {
   assignOrder,
   changeOrderStatus,
@@ -24,10 +26,12 @@ export default function OwnerOrderDetails() {
   const sub = useOwnerSubscription();
   const allStaff = useAppSelector((s) => s.staff);
   const orders = forTenant(useOrders(), sub?.tenant.id);
+  const reviews= useReviews();
 
   useEffect(() => {
     restoreStaff();
     restoreOrders();
+    restoreReviews();
   }, []);
 
   const order = orders.find((o) => o.id === id);
@@ -46,6 +50,8 @@ export default function OwnerOrderDetails() {
   }
 
   const team = allStaff.filter((m) => m.tenantId === sub?.tenant.id);
+
+  const review = reviewForOrder(reviews, order.id);
   const staff = team.filter((m) => m.role === "staff" && m.status === "Active");
   const assignedName = order.assignedStaffId
     ? (team.find((m) => m.id === order.assignedStaffId)?.name ?? "Unavailable")
@@ -89,6 +95,13 @@ export default function OwnerOrderDetails() {
             </div>
           }
         />
+                {review && (
+          <section className="card space-y-2 p-6">
+            <h2 className="font-black text-slate-900">Customer review</h2>
+            <Stars value={review.rating} size={20} />
+            {review.comment && <p className="whitespace-pre-line text-sm text-slate-700">{review.comment}</p>}
+          </section>
+        )}
       </div>
     </>
   );

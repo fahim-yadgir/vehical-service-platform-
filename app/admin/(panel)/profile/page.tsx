@@ -35,7 +35,7 @@ export default function AdminProfile() {
 
   const logout = () => {
     clearSession();
-    router.push("/admin/login");
+    router.replace("/admin/login");
   };
 
   return (

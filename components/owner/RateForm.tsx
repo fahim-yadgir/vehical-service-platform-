@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { X } from "lucide-react";
 import Button from "../ui/Button";
 import { vehicleLabel, vehiclesOverlap, type RateItem, type RateVehicle } from "../../lib/ownerRates";
+import { useBackHandler } from "@/lib/native/backStack";
 
 type Props = {
   /** What kind of rate this is, for the heading. */
@@ -23,6 +24,9 @@ const VEHICLES: RateVehicle[] = ["Car", "Bike", "Both"];
 
 /** A modal to add one rate or edit a saved one: name, vehicle type, price and note. */
 export default function RateForm({ title, initial, presetName = "", suggestions, existing, onSave, onClose }: Props) {
+  // Back button handler for mobile native apps
+  useBackHandler(true, onClose);
+
   const [name, setName] = useState(initial?.name ?? presetName);
   const [vehicle, setVehicle] = useState<RateVehicle>(initial?.vehicle ?? "Car");
   const [price, setPrice] = useState(initial ? String(initial.price) : "");
@@ -51,7 +55,7 @@ export default function RateForm({ title, initial, presetName = "", suggestions,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="overlay-safe fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-labelledby="rate-form-title" className="my-8 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>

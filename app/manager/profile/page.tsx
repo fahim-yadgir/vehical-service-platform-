@@ -69,7 +69,7 @@ export default function ManagerProfilePage() {
   const logout = () => {
     clearSession();
     clearOwnerTenantId();
-    router.push("/login");
+    router.replace("/login");
   };
 
   const address = profile ? [profile.address, profile.city, profile.state, profile.pincode].filter(Boolean).join(", ") : "";
