@@ -8,6 +8,14 @@ import { loadProfile } from "./customerProfile";
 export type OrderEvent = { at: string; by: string; role: string; text: string };
 export type Actor = { name: string; role: string; at: string };
 export type Pickup = { lat: number; lng: number; address: string };
+/** One photo with the place and time it was taken. The picture itself is in photoStore. */
+export type ProofPhoto = { photoId: string; lat: number; lng: number; accuracy: number; takenAt: string };
+/** The photos staff took when they collected the vehicle ("pickup") or handed it back ("delivery"). Saved once, never changed. */
+export type Proof = { photos: ProofPhoto[]; by: { name: string; role: string }; savedAt: string };
+export type ProofKind = "pickup" | "delivery";
+export const MIN_PROOF_PHOTOS = 1;
+export const MAX_PROOF_PHOTOS = 6;
+const PROOF_MAX_AGE_MS = 30 * 60 * 1000; // a photo must be taken no more than 30 minutes before it is saved
 
 /** DEMO ONLY: the backend will keep these in bookings and booking_events. */
 export type Order = {
@@ -30,6 +38,7 @@ export type Order = {
   pickupOtp?: string;     // staff sees it; the customer types it
   deliveryOtp?: string;   // the customer sees it; staff types it
   otpAttempts?: number;   // inside type Order, e.g. after `notes?: string;`
+  proofs?: { pickup?: Proof; delivery?: Proof };
 };
 
 
@@ -283,7 +292,15 @@ function verifyOtp(id: string, kind: "pickup" | "delivery", code: string): OtpRe
   const waitingFor = kind === "pickup" ? "driver_assigned" : "ready_for_delivery";
   const otp = kind === "pickup" ? o.pickupOtp : o.deliveryOtp;
   if (o.status !== waitingFor || !otp) return { ok: false, error: "No OTP is needed right now." };
-
+  if (!o.proofs?.[kind]) {
+    return {
+      ok: false,
+      error:
+        kind === "pickup"
+          ? "The service staff has not photographed the vehicle yet. Ask them to do it first, then try again."
+          : "Take the delivery photos first.",
+    };
+  }
   const used = o.otpAttempts ?? 0;
   if (used >= MAX_ATTEMPTS) return { ok: false, error: "Too many wrong attempts. Please contact the service centre." };
 
@@ -311,3 +328,39 @@ function verifyOtp(id: string, kind: "pickup" | "delivery", code: string): OtpRe
 export const verifyPickupOtp = (id: string, code: string) => verifyOtp(id, "pickup", code);
 /** The staff member types the OTP the customer tells them. */
 export const verifyDeliveryOtp = (id: string, code: string) => verifyOtp(id, "delivery", code);
+// ---- photo proof of pickup and delivery ----
+export type SaveProofResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Records the photos taken at pickup (before the customer confirms the OTP) or at delivery (before the staff
+ * member enters the OTP). Every photo needs its own location and time. A proof is saved once and cannot be replaced.
+ */
+export function saveProof(id: string, kind: ProofKind, photos: ProofPhoto[]): SaveProofResult {
+  const o = state.find((x) => x.id === id);
+  if (!o) return { ok: false, error: "Order not found." };
+  const stage = kind === "pickup" ? ["driver_assigned"] : ["ready_for_delivery"];
+  if (!stage.includes(o.status)) return { ok: false, error: "Photos are not needed at this stage." };
+  if (o.proofs?.[kind]) return { ok: false, error: "The photos for this step are already saved." };
+  if (photos.length < MIN_PROOF_PHOTOS) return { ok: false, error: "Take at least one photo." };
+  if (photos.length > MAX_PROOF_PHOTOS) return { ok: false, error: `Use at most ${MAX_PROOF_PHOTOS} photos.` };
+
+  const now = Date.now();
+  for (const p of photos) {
+    const taken = Date.parse(p.takenAt);
+    const place = Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180;
+    if (!p.photoId || !place || !Number.isFinite(p.accuracy) || !Number.isFinite(taken)) {
+      return { ok: false, error: "Every photo needs its location and time." };
+    }
+    if (taken > now + 5 * 60 * 1000 || now - taken > PROOF_MAX_AGE_MS) {
+      return { ok: false, error: "A photo is too old. Take the photos again." };
+    }
+  }
+  patchOrder(
+    id,
+    (_o, who) => ({
+      proofs: { ...o.proofs, [kind]: { photos, by: { name: who.name, role: who.role }, savedAt: who.at } },
+    }),
+    `${kind === "pickup" ? "Pickup" : "Delivery"} photos recorded (${photos.length} photo${photos.length === 1 ? "" : "s"})`,
+  );
+  return { ok: true };
+}

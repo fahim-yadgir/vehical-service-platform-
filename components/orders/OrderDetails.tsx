@@ -12,7 +12,7 @@ import {
   type Actor,
   type Order,
 } from "../../lib/orders";
-
+import ProofSection from "../orders/ProofSection";
 function Info({ label, value }: { label: string; value?: ReactNode }) {
   return (
     <div>
@@ -108,6 +108,7 @@ export default function OrderDetails({
             ))}
           </ol>
         </section>
+                <ProofSection order={order} />
       </div>
     </div>
   );
