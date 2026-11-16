@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import Topbar from "../../../../components/navbar/Topbar";
 import DataTable from "../../../../components/tables/DataTable";
 import Badge from "../../../../components/ui/Badge";
@@ -10,15 +11,8 @@ import AddTenantForm, {
 } from "../../../../components/admin/AddTenantForm";
 import WhatsAppCredentialsModal from "../../../../components/admin/WhatsAppCredentialsModal";
 import { generateTempPassword } from "../../../../lib/tempPassword";
-import { ymd } from "../../../../lib/revenue";
-import {
-  createAccount,
-  removeTenantAccounts,
-  findAccount,
-} from "../../../../lib/tenantAccounts";
-import TenantDetailsModal, {
-  subscriptionState,
-} from "../../../../components/admin/TenantDetailsModal";
+import { formatDate, ymd } from "../../../../lib/revenue";
+import { createAccount } from "../../../../lib/tenantAccounts";
 import {
   restoreStaff,
   restoreTenants,
@@ -28,7 +22,13 @@ import {
   type Tenant,
   type TenantFilter,
 } from "../../../../lib/redux-store";
-import { plans, planExpiry } from "../../../../lib/plans";
+import { planExpiry, planPriceOf } from "../../../../lib/plans";
+import {
+  amountLabel,
+  latestRecord,
+  newSubscriptionRecord,
+  payDateLabel,
+} from "../../../../lib/subscriptionHistory";
 
 const filters: { value: TenantFilter; label: string }[] = [
   { value: "all", label: "All tenants" },
@@ -73,9 +73,6 @@ export default function Tenants() {
   const staff = useAppSelector((state) => state.staff);
   const selectedFilter = useAppSelector((state) => state.tenantFilter);
   const [showTenantForm, setShowTenantForm] = useState(false);
-  const [tenantToEdit, setTenantToEdit] = useState<Tenant | null>(null);
-  const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
-  const [tenantToReset, setTenantToReset] = useState<Tenant | null>(null);
   const [credentials, setCredentials] = useState<{
     owner: string;
     centre: string;
@@ -83,13 +80,7 @@ export default function Tenants() {
     password: string;
     reset?: boolean;
   } | null>(null);
-  const [viewingId, setViewingId] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{
-    tone: "ok" | "warn";
-    text: string;
-  } | null>(null);
 
-  const viewing = items.find((tenant) => tenant.id === viewingId) ?? null;
   const pageSize = 10;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -104,25 +95,6 @@ export default function Tenants() {
     restoreTenants();
   }, []);
 
-  function saveTenant(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const tenantDetails = {
-      name: String(formData.get("name")),
-      owner: String(formData.get("owner")),
-      status: String(formData.get("status")) as Tenant["status"],
-      plan: String(formData.get("plan")),
-      subscriptionExpiresAt: String(formData.get("subscriptionExpiresAt")),
-    };
-    if (!tenantToEdit) return;
-    store.dispatch({
-      type: "tenants/updated",
-      payload: { ...tenantToEdit, ...tenantDetails },
-    });
-    setShowTenantForm(false);
-    setTenantToEdit(null);
-  }
-
   function createTenant(data: NewTenant) {
     const latestId = items.reduce(
       (latest, tenant) =>
@@ -132,6 +104,7 @@ export default function Tenants() {
     const id = `TEN${String(latestId + 1).padStart(3, "0")}`;
     const password = generateTempPassword();
     const now = new Date();
+    const expires = planExpiry(data.plan, now);
     store.dispatch({
       type: "tenants/added",
       payload: {
@@ -144,7 +117,17 @@ export default function Tenants() {
         plan: data.plan,
         users: 1,
         createdAt: ymd(now),
-        subscriptionExpiresAt: planExpiry(data.plan, now),
+        subscriptionExpiresAt: expires,
+        // the first entry of the subscription history
+        subscriptionHistory: [
+          newSubscriptionRecord({
+            plan: data.plan,
+            amount: planPriceOf(data.plan),
+            payDate: ymd(now),
+            startsOn: ymd(now),
+            endsOn: expires,
+          }),
+        ],
       },
     });
     setShowTenantForm(false);
@@ -162,89 +145,6 @@ export default function Tenants() {
       mobile: data.mobile,
       password,
     });
-  }
-
-  // Step 1: the Reset password button. Opens the confirm popup (needs an owner mobile).
-  function askResetOwnerPassword(tenant: Tenant) {
-    if (!tenant.mobile) {
-      setNotice({
-        tone: "warn",
-        text: `${tenant.name} has no owner mobile number on file, so the login cannot be reset.`,
-      });
-      return;
-    }
-    setTenantToReset(tenant);
-  }
-
-  // Step 2: confirmed. New temporary password, shown once and sent on WhatsApp.
-  async function confirmResetOwnerPassword() {
-    const tenant = tenantToReset;
-    const mobile = tenant?.mobile;
-    if (!tenant || !mobile) return;
-    setTenantToReset(null);
-    const password = generateTempPassword();
-    // Replaces the owner's login; they must change the new password on next sign-in.
-    await createAccount({
-      mobile,
-      email: tenant.email,
-      name: tenant.owner,
-      role: "owner",
-      tenantId: tenant.id,
-      password,
-      createdAt: findAccount(mobile)?.createdAt,
-    });
-    setViewingId(null);
-    setCredentials({
-      owner: tenant.owner,
-      centre: tenant.name,
-      mobile,
-      password,
-      reset: true,
-    });
-  }
-
-  function openTenantForm(tenant?: Tenant) {
-    setTenantToEdit(tenant ?? null);
-    setShowTenantForm(true);
-  }
-
-  function toggleStatus(tenant: Tenant) {
-    if (tenant.status === "Suspended" && subscriptionState(tenant).expired) {
-      setNotice({
-        tone: "warn",
-        text: `${tenant.name}'s subscription has expired. Extend the expiry date in Manage before activating.`,
-      });
-      return;
-    }
-    const next = tenant.status === "Active" ? "Suspended" : "Active";
-    store.dispatch({
-      type: "tenants/updated",
-      payload: { ...tenant, status: next },
-    });
-    setNotice({
-      tone: "ok",
-      text: `${tenant.name} is now ${next.toLowerCase()}.`,
-    });
-  }
-
-  function manageTenant(tenant: Tenant) {
-    setViewingId(null);
-    openTenantForm(tenant);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  function confirmDeleteTenant() {
-    if (!tenantToDelete) return;
-    const tenant = tenantToDelete;
-    setViewingId(null);
-    removeTenantAccounts(tenant.id);
-    store.dispatch({ type: "tenants/deleted", payload: tenant.id });
-    store.dispatch({ type: "staff/removedForTenant", payload: tenant.id });
-    if (tenantToEdit?.id === tenant.id) {
-      setShowTenantForm(false);
-      setTenantToEdit(null);
-    }
-    setTenantToDelete(null);
   }
 
   function changeFilter(filter: TenantFilter) {
@@ -303,31 +203,11 @@ export default function Tenants() {
               );
             })}
           </div>
-          <Button
-            onClick={() =>
-              showTenantForm ? setShowTenantForm(false) : openTenantForm()
-            }
-          >
+          <Button onClick={() => setShowTenantForm((open) => !open)}>
             {showTenantForm ? "Close form" : "Add service centre"}
           </Button>
         </div>
-        {notice && (
-          <div
-            role="status"
-            className={`mb-5 flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${notice.tone === "ok" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}
-          >
-            <span>{notice.text}</span>
-            <button
-              type="button"
-              onClick={() => setNotice(null)}
-              aria-label="Dismiss"
-              className="font-black opacity-60 hover:opacity-100"
-            >
-              ×
-            </button>
-          </div>
-        )}
-        {showTenantForm && !tenantToEdit && (
+        {showTenantForm && (
           <AddTenantForm
             existingMobiles={[
               ...items.flatMap((tenant) =>
@@ -338,117 +218,6 @@ export default function Tenants() {
             onCreate={createTenant}
             onCancel={() => setShowTenantForm(false)}
           />
-        )}
-        {showTenantForm && tenantToEdit && (
-          <section
-            className="mb-5 rounded-xl border border-slate-200 bg-white p-5"
-            aria-labelledby="add-tenant-heading"
-          >
-            <div className="mb-4">
-              <h2
-                id="add-tenant-heading"
-                className="text-lg font-bold text-slate-900"
-              >
-                Manage tenant
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Update details for {tenantToEdit.name}.
-              </p>
-            </div>
-            <form
-              key={tenantToEdit.id}
-              onSubmit={saveTenant}
-              className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-            >
-              <label className="block space-y-2">
-                <span className="text-sm font-bold text-slate-700">
-                  Service centre name
-                </span>
-                <input
-                  name="name"
-                  maxLength={32}
-                  required
-                  className="input"
-                  defaultValue={tenantToEdit?.name ?? ""}
-                  placeholder="e.g. City Auto Care"
-                />
-              </label>
-              <label className="block space-y-2">
-                <span className="text-sm font-bold text-slate-700">
-                  Owner name
-                </span>
-                <input
-                  name="owner"
-                  maxLength={32}
-                  required
-                  className="input"
-                  defaultValue={tenantToEdit?.owner ?? ""}
-                  placeholder="e.g. Asha Mehta"
-                />
-              </label>
-              <label className="block space-y-2">
-                <span className="text-sm font-bold text-slate-700">
-                  Subscription plan
-                </span>
-                <select
-                  name="plan"
-                  required
-                  defaultValue={tenantToEdit?.plan ?? ""}
-                  className="input"
-                  onChange={(e) => {
-                    const expiry = e.currentTarget.form?.elements.namedItem(
-                      "subscriptionExpiresAt",
-                    ) as HTMLInputElement | null;
-                    if (expiry)
-                      expiry.value = planExpiry(e.target.value, new Date());
-                  }}
-                >
-                  <option value="" disabled>
-                    Select a plan
-                  </option>
-                  {plans.map((p) => (
-                    <option key={p.name}>{p.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-2">
-                <span className="text-sm font-bold text-slate-700">
-                  Subscription expiry
-                </span>
-                <input
-                  name="subscriptionExpiresAt"
-                  type="date"
-                  required
-                  className="input"
-                  defaultValue={tenantToEdit?.subscriptionExpiresAt ?? ""}
-                />
-              </label>
-              <label className="block space-y-2">
-                <span className="text-sm font-bold text-slate-700">Status</span>
-                <select
-                  name="status"
-                  defaultValue={tenantToEdit?.status ?? "Active"}
-                  className="input"
-                >
-                  <option>Active</option>
-                  <option>Suspended</option>
-                </select>
-              </label>
-              <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-3">
-                <Button type="submit">Save changes</Button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowTenantForm(false);
-                    setTenantToEdit(null);
-                  }}
-                  className="rounded-lg px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </section>
         )}
         <div className="min-w-0">
           {/* The table pages, searches, sorts and exports ALL filtered tenants itself.
@@ -461,69 +230,39 @@ export default function Tenants() {
               "Owner",
               "Users",
               "Plan",
+              "Pay date",
+              "Amount",
               "Subscription expiry",
               "Status",
               "Action",
             ]}
             exportName="tenants"
-            rows={filteredItems.map((tenant) => [
-              <b key="name">{tenant.name}</b>,
-              tenant.owner,
-              String(tenantHeadcount(staff, tenant.id).total),
-              tenant.plan,
-              new Date(
-                `${tenant.subscriptionExpiresAt}T00:00:00`,
-              ).toLocaleDateString("en-IN", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              }),
-              <Badge
-                key="status"
-                tone={tenant.status === "Active" ? "green" : "red"}
-              >
-                {tenant.status}
-              </Badge>,
-              // one line: the table scrolls sideways instead of wrapping the buttons
-              <div key="actions" className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setViewingId(tenant.id)}
-                  className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700"
+            rows={filteredItems.map((tenant) => {
+              // Pay date and Amount come from the tenant's latest subscription
+              const last = latestRecord(tenant);
+              return [
+                <b key="name">{tenant.name}</b>,
+                tenant.owner,
+                String(tenantHeadcount(staff, tenant.id).total),
+                tenant.plan,
+                payDateLabel(last),
+                amountLabel(last),
+                formatDate(tenant.subscriptionExpiresAt),
+                <Badge
+                  key="status"
+                  tone={tenant.status === "Active" ? "green" : "red"}
                 >
-                  View
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleStatus(tenant)}
-                  className={`rounded-lg border px-3 py-2 text-xs font-bold ${tenant.status === "Active" ? "border-rose-200 text-rose-700 hover:bg-rose-50" : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"}`}
+                  {tenant.status}
+                </Badge>,
+                <Link
+                  key="actions"
+                  href={`/admin/tenants/${tenant.id}`}
+                  className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold !text-white hover:bg-slate-700"
                 >
-                  {tenant.status === "Active" ? "Suspend" : "Activate"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openTenantForm(tenant)}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                >
-                  Manage
-                </button>
-                <button
-                  type="button"
-                  onClick={() => askResetOwnerPassword(tenant)}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50"
-                >
-                  Reset password
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTenantToDelete(tenant)}
-                  aria-label={`Delete ${tenant.name}`}
-                  className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"
-                >
-                  Delete
-                </button>
-              </div>,
-            ])}
+                  Edit
+                </Link>,
+              ];
+            })}
           />
           {filteredItems.length === 0 && (
             <p className="py-10 text-center text-sm text-slate-500">
@@ -535,91 +274,10 @@ export default function Tenants() {
         </div>
       </div>
 
-      {/* Delete confirmation */}
-      {tenantToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Delete confirmation"
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-          >
-            <h3 className="text-lg font-bold text-slate-900">Delete tenant</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              Are you sure you want to delete{" "}
-              <strong className="text-slate-900">{tenantToDelete.name}</strong>?
-              This action cannot be undone.
-            </p>
-            <div className="mt-6 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setTenantToDelete(null)}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmDeleteTenant}
-                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700"
-              >
-                Delete tenant
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reset owner password confirmation */}
-      {tenantToReset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Reset password confirmation"
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-          >
-            <h3 className="text-lg font-bold text-slate-900">
-              Reset owner password
-            </h3>
-            <p className="mt-2 text-sm text-slate-600">
-              Reset the password for{" "}
-              <strong className="text-slate-900">{tenantToReset.owner}</strong>{" "}
-              ({tenantToReset.name})? The old password will stop working and a
-              new temporary one will be shown.
-            </p>
-            <div className="mt-6 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setTenantToReset(null)}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmResetOwnerPassword}
-                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-700"
-              >
-                Reset password
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {credentials && (
         <WhatsAppCredentialsModal
           {...credentials}
           onClose={() => setCredentials(null)}
-        />
-      )}
-      {viewing && (
-        <TenantDetailsModal
-          tenant={viewing}
-          onClose={() => setViewingId(null)}
-          onToggleStatus={toggleStatus}
-          onManage={manageTenant}
         />
       )}
     </>

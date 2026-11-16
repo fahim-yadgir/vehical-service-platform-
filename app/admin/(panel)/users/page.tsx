@@ -1,17 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Search } from "lucide-react";
 import Topbar from "../../../../components/navbar/Topbar";
 import DataTable from "../../../../components/tables/DataTable";
 import Badge from "../../../../components/ui/Badge";
-import UserDetailsModal from "../../../../components/admin/UserDetailsModal";
 import { restoreStaff, restoreTenants, useAppSelector } from "../../../../lib/redux-store";
 import { loadAccounts, type TenantAccount } from "../../../../lib/tenantAccounts";
 import { restoreOrders, useOrders } from "../../../../lib/orders";
 import { buildUsers, roles, type PlatformUser, type UserRole } from "../../../../lib/mockUsers";
+import { deleteUser, loadBlocked } from "../../../../lib/userActions";
 
-const BLOCKED_KEY = "vehicle-service-platform.blockedUsers";
 const PAGE_SIZE = 10;
 
 export default function Users() {
@@ -25,25 +25,37 @@ export default function Users() {
   const [role, setRole] = useState<UserRole | "all">("all");
   const [tenant, setTenant] = useState("all");
   const [query, setQuery] = useState("");
-  const [viewingId, setViewingId] = useState<string | null>(null);
+  const [userToDelete, setUserToDelete] = useState<PlatformUser | null>(null);
+  const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
+
+  const refresh = () => {
+    setCustomers(loadAccounts().filter((a) => a.role === "customer"));
+    setBlocked(loadBlocked());
+  };
 
   useEffect(() => {
     restoreTenants();
     restoreStaff();
     restoreOrders();
-    setCustomers(loadAccounts().filter((a) => a.role === "customer"));
-    try {
-      const saved = JSON.parse(window.localStorage.getItem(BLOCKED_KEY) ?? "[]");
-      if (Array.isArray(saved)) setBlocked(saved);
-    } catch {}
+    refresh();
   }, []);
 
-  const toggleBlock = (u: PlatformUser) => {
-    const next = blocked.includes(u.id) ? blocked.filter((id) => id !== u.id) : [...blocked, u.id];
-    setBlocked(next);
-    try {
-      window.localStorage.setItem(BLOCKED_KEY, JSON.stringify(next));
-    } catch {}
+  // Delete asks first. An owner cannot be deleted here, the message says where to do it.
+  const askDelete = (u: PlatformUser) => {
+    if (u.role === "Owner") {
+      const result = deleteUser(u);
+      if (!result.ok) setNotice({ tone: "warn", text: result.error });
+      return;
+    }
+    setUserToDelete(u);
+  };
+
+  const confirmDelete = () => {
+    if (!userToDelete) return;
+    const result = deleteUser(userToDelete);
+    setNotice(result.ok ? { tone: "ok", text: `${userToDelete.name} was deleted.` } : { tone: "warn", text: result.error });
+    setUserToDelete(null);
+    refresh();
   };
 
   const q = query.trim().toLowerCase();
@@ -51,7 +63,6 @@ export default function Users() {
     (tenant === "all" || u.tenant === tenant) && (!q || u.name.toLowerCase().includes(q) || u.mobile.includes(q));
   const scoped = users.filter(matches);
   const filtered = scoped.filter((u) => role === "all" || u.role === role);
-  const viewing = users.find((u) => u.id === viewingId) ?? null;
 
   const tab = (value: UserRole | "all", label: string) => (
     <button
@@ -99,6 +110,18 @@ export default function Users() {
           </div>
         </div>
 
+        {notice && (
+          <div
+            role="status"
+            className={`mb-5 flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold ${notice.tone === "ok" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}
+          >
+            <span>{notice.text}</span>
+            <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="font-black opacity-60 hover:opacity-100">
+              ×
+            </button>
+          </div>
+        )}
+
         <DataTable
           key={role + tenant}
           pageSize={PAGE_SIZE}
@@ -112,13 +135,19 @@ export default function Users() {
             u.tenant,
             <Badge key="s" tone={blocked.includes(u.id) ? "red" : "green"}>{blocked.includes(u.id) ? "Blocked" : "Active"}</Badge>,
             <div key="a" className="flex flex-nowrap items-center gap-2 whitespace-nowrap *:shrink-0">
-              <button type="button" onClick={() => setViewingId(u.id)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700">View</button>
+              <Link
+                href={`/admin/users/${encodeURIComponent(u.id)}`}
+                className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold !text-white hover:bg-slate-700"
+              >
+                Edit details
+              </Link>
               <button
                 type="button"
-                onClick={() => toggleBlock(u)}
-                className={`rounded-lg border px-3 py-2 text-xs font-bold ${blocked.includes(u.id) ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : "border-rose-200 text-rose-700 hover:bg-rose-50"}`}
+                onClick={() => askDelete(u)}
+                aria-label={`Delete ${u.name}`}
+                className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"
               >
-                {blocked.includes(u.id) ? "Unblock" : "Block"}
+                Delete
               </button>
             </div>,
           ])}
@@ -130,7 +159,24 @@ export default function Users() {
         )}
       </div>
 
-      {viewing && <UserDetailsModal user={viewing} blocked={blocked.includes(viewing.id)} onClose={() => setViewingId(null)} onToggleBlock={toggleBlock} />}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div role="dialog" aria-modal="true" aria-label="Delete confirmation" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-slate-900">Delete user</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Are you sure you want to delete <strong className="text-slate-900">{userToDelete.name}</strong> ({userToDelete.role})? Their login will be removed. This cannot be undone.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button type="button" onClick={() => setUserToDelete(null)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                Cancel
+              </button>
+              <button type="button" onClick={confirmDelete} className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-red-700">
+                Delete user
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

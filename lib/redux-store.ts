@@ -2,6 +2,17 @@
 
 import { useSyncExternalStore } from "react";
 import {revenue} from "./mock-data"
+
+/** One subscription a tenant took: the plan, what was paid, when, and the period it covers. */
+export type SubscriptionRecord = {
+  id: string;
+  plan: string;
+  amount: number; // rupees; 0 for the free trial or when the plan price was not set
+  payDate: string; // yyyy-mm-dd
+  startsOn: string; // yyyy-mm-dd
+  endsOn: string; // yyyy-mm-dd
+};
+
 export type Tenant = {
   id: string;
   name: string;
@@ -14,6 +25,8 @@ export type Tenant = {
   subscriptionExpiresAt: string; // yyyy-mm-dd
   mobile?: string;
   email?: string;
+  /** Every plan the centre has taken. Older tenants have none saved; see lib/subscriptionHistory.ts. */
+  subscriptionHistory?: SubscriptionRecord[];
 };
 
 /** A manager or driver the owner added to their service centre ("My Staff"). */
