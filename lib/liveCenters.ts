@@ -7,11 +7,16 @@ import { loadOwnerRates } from "./ownerRates";
 import { restoreStaff, restoreTenants, useAppSelector, type StaffMember, type Tenant } from "./redux-store";
 import type { ServiceCenter } from "./serviceCenters";
 import { ratingStats, restoreReviews, reviewsForTenant, useReviews, type Review } from "./reviews";
+import { restoreOrders, useOrders, type Order } from "./orders";
+import { orderLimitStatus } from "./plans";
 
-/** A service centre as the customer sees it, built from what the admin and the owner entered. */
-export type LiveCenter = ServiceCenter & { tenant: Tenant; since: number; managers: number; staff: number };
+/**
+ * A service centre as the customer sees it, built from what the admin and the owner entered.
+ * `acceptingOrders` is false when the centre has used all the orders its plan allows this month.
+ */
+export type LiveCenter = ServiceCenter & { tenant: Tenant; since: number; managers: number; staff: number; acceptingOrders: boolean };
 
-function build(t: Tenant, allStaff: StaffMember[], allReviews:Review[]): LiveCenter | null {
+function build(t: Tenant, allStaff: StaffMember[], allReviews: Review[], allOrders: Order[]): LiveCenter | null {
   if (describeSubscription(t).locked) return null; // suspended or plan ended
   const p = loadOwnerProfile(t.id);
   if (!p || !isListedOnApp(p) || p.lat === undefined || p.lng === undefined) return null;
@@ -19,7 +24,8 @@ function build(t: Tenant, allStaff: StaffMember[], allReviews:Review[]): LiveCen
   const rates = loadOwnerRates(t.id);
   const team = allStaff.filter((m) => m.tenantId === t.id && m.status === "Active");
   const mobile = t.mobile ?? "";
-const stats = ratingStats(reviewsForTenant(allReviews, t.id));
+  const stats = ratingStats(reviewsForTenant(allReviews, t.id));
+  const limit = orderLimitStatus(t.plan, t.subscriptionExpiresAt, allOrders, t.id);
   return {
     id: t.id, // the tenant id is the centre id
     name: t.name,
@@ -38,6 +44,7 @@ const stats = ratingStats(reviewsForTenant(allReviews, t.id));
     since: Number(t.createdAt.slice(0, 4)),
     managers: team.filter((m) => m.role === "Manager").length,
     staff: team.filter((m) => m.role === "staff").length,
+    acceptingOrders: !limit.reached,
   };
 }
 
@@ -46,18 +53,20 @@ export function useLiveCenters() {
   const tenants = useAppSelector((s) => s.tenants);
   const staff = useAppSelector((s) => s.staff);
   const reviews = useReviews();
+  const orders = useOrders();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     restoreTenants();
     restoreStaff();
     restoreReviews();
+    restoreOrders();
     setReady(true);
   }, []);
 
   const centers = useMemo(
-    () => (ready ? tenants.flatMap((t) => { const c = build(t, staff, reviews); return c ? [c] : []; }) : []),
-    [ready, tenants, staff, reviews],
+    () => (ready ? tenants.flatMap((t) => { const c = build(t, staff, reviews, orders); return c ? [c] : []; }) : []),
+    [ready, tenants, staff, reviews, orders],
   );
   return { centers, ready };
 }

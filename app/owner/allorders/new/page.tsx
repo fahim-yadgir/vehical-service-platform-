@@ -8,7 +8,8 @@ import OrderForm, { type OrderFormData } from "../../../../components/manager/Or
 import { useOwnerSubscription } from "../../../../lib/ownerTenant";
 import { useOwnerRates } from "../../../../lib/ownerRates";
 import { restoreStaff, useAppSelector } from "../../../../lib/redux-store";
-import { createOrder, restoreOrders } from "../../../../lib/orders";
+import { createOrder, restoreOrders, useOrders } from "../../../../lib/orders";
+import { orderLimitBlock } from "../../../../lib/orderLimit";
 
 export default function OwnerNewOrderPage() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function OwnerNewOrderPage() {
   const tenantId = sub?.tenant.id;
   const { rates } = useOwnerRates(tenantId);
   const allStaff = useAppSelector((s) => s.staff);
+  const orders = useOrders();
 
   useEffect(() => {
     restoreStaff();
@@ -26,8 +28,11 @@ export default function OwnerNewOrderPage() {
     (m) => m.tenantId === tenantId && m.role === "staff" && m.status === "Active",
   );
 
+  // set when this month's orders of the plan are used up (cancelled orders are not counted)
+  const limitMessage = tenantId ? orderLimitBlock(tenantId, orders, "centre") : null;
+
   const submit = (d: OrderFormData) => {
-    if (!tenantId) return;
+    if (!tenantId || limitMessage) return;
     const member = staff.find((m) => m.id === d.assignedStaffId);
     const id = createOrder({
       tenantId,
@@ -50,6 +55,14 @@ export default function OwnerNewOrderPage() {
         <Link href="/owner/allorders" className="btn btn-secondary">
           ← Back to orders
         </Link>
+        {limitMessage && (
+          <p role="alert" className="rounded-2xl bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+            {limitMessage}{" "}
+            <Link href="/owner/subscription" className="underline">
+              View subscription
+            </Link>
+          </p>
+        )}
         <OrderForm services={rates?.services ?? []} staff={staff} onSubmit={submit} />
       </div>
     </>

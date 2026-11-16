@@ -11,7 +11,8 @@ import { useLiveCenters } from "../../../../lib/liveCenters";
 import { loadOwnerRates, rateAppliesTo, rateLabel, type OwnerRates } from "../../../../lib/ownerRates";
 import { DEFAULT_LOCATION, loadLocation } from "../../../../lib/customerLocation";
 import { loadProfile } from "../../../../lib/customerProfile";
-import { createOrder, restoreOrders } from "../../../../lib/orders";
+import { createOrder, restoreOrders, useOrders } from "../../../../lib/orders";
+import { orderLimitBlock } from "../../../../lib/orderLimit";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -20,6 +21,7 @@ function NewBooking() {
   const params = useSearchParams();
   const { centers } = useLiveCenters();
   const { vehicles } = useVehicles();
+  const orders = useOrders();
 
   const [centerId, setCenterId] = useState(params.get("center") ?? "");
   const [vehicleId, setVehicleId] = useState("");
@@ -38,6 +40,8 @@ function NewBooking() {
   const center = centers.find((c) => c.id === centerId);
   const vehicle = vehicles.find((v) => v.id === vehicleId);
   const kind = vehicle && /bike|scooter|motorcycle/i.test(vehicle.type) ? "Bike" : "Car";
+  // set when the centre has used all the orders its plan allows this month
+  const limitMessage = center ? orderLimitBlock(center.id, orders, "customer") : null;
 
   useEffect(() => {
     setRates(centerId ? loadOwnerRates(centerId) : null);
@@ -51,6 +55,7 @@ function NewBooking() {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!center) return setError("Choose a service centre.");
+    if (limitMessage) return setError(limitMessage);
     if (!vehicle) return setError("Choose your vehicle.");
     if (!service) return setError("Choose a service.");
     if (!date) return setError("Choose a date.");
@@ -81,13 +86,16 @@ function NewBooking() {
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-2 sm:col-span-2">
               <span className="text-sm font-bold text-slate-700">Service centre</span>
-              <select className="input" value={centerId} onChange={(e) => setCenterId(e.target.value)}>
+              <select className="input" value={centerId} onChange={(e) => { setCenterId(e.target.value); setError(""); }}>
                 <option value="">Choose a centre…</option>
                 {centers.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name} · {c.area}</option>
+                  <option key={c.id} value={c.id} disabled={!c.acceptingOrders}>
+                    {c.name} · {c.area}{c.acceptingOrders ? "" : " (not taking orders right now)"}
+                  </option>
                 ))}
               </select>
               {centers.length === 0 && <span className="block text-xs text-slate-500">No service centres are available yet.</span>}
+              {limitMessage && <span role="alert" className="block text-xs font-semibold text-amber-700">{limitMessage}</span>}
             </label>
 
             <label className="block space-y-2">
@@ -137,7 +145,7 @@ function NewBooking() {
           </section>
 
           {error && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p>}
-          <Button type="submit">Confirm booking</Button>
+          <Button type="submit" disabled={!!limitMessage}>Confirm booking</Button>
         </form>
       </div>
     </>
