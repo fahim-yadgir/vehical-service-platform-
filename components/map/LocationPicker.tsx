@@ -73,6 +73,12 @@ export default function LocationPicker({
   const [message, setMessage] = useState("");
   const requestId = useRef(0);
 
+  // Keep a stable ref to onChange to prevent race conditions and stale closures
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
   const position: LatLng = value ?? DEFAULT_CENTER;
 
   async function pick(next: LatLng, knownResult?: SearchResult) {
@@ -83,15 +89,15 @@ export default function LocationPicker({
       const city = addr.city || addr.town || addr.village || "";
       const state = addr.state || "";
       const pincode = addr.postcode || "";
-      onChange({ ...next, address: knownResult.display_name, city, state, pincode });
+      onChangeRef.current({ ...next, address: knownResult.display_name, city, state, pincode });
       return;
     }
 
     // Show pin right away, then fetch details via reverse geocode
-    onChange({ ...next, address: "Finding address..." });
+    onChangeRef.current({ ...next, address: "Finding address..." });
     const locationData = await reverseGeocode(next);
     if (id === requestId.current) {
-      onChange(locationData);
+      onChangeRef.current(locationData);
     }
   }
 

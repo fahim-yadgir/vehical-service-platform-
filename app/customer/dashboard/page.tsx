@@ -240,15 +240,18 @@ export default function DashboardPage() {
               No bookings yet. <Link href="/customer/bookings/new" className="font-bold text-orange-600 underline">Book your first service</Link>.
             </p>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               {orders.slice(0, 4).map((o) => (
-                <Link key={o.id} href={`/customer/bookings/${o.id}`} className="rounded-2xl border border-slate-100 p-4 transition hover:-translate-y-0.5 hover:shadow-md">
-                  <div className="flex justify-between gap-3">
-                    <div>
-                      <p className="font-bold">{o.id} · {o.service}</p>
-                      <p className="muted mt-1 text-sm">{o.vehicle.brand} {o.vehicle.model} · {o.date}</p>
-                      <p className="muted mt-0.5 text-xs">{centreOf(o.tenantId)?.name ?? "Service centre"} · {money(o.amount)}</p>
+                <Link key={o.id} href={`/customer/bookings/${o.id}`} className="group relative flex items-center justify-between overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-xs transition-all hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-md">
+                  <div className="space-y-1.5 pr-4">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md">{o.id}</span>
+                      <span className="text-sm font-bold text-slate-900 group-hover:text-orange-600 transition-colors">{o.service}</span>
                     </div>
+                    <p className="text-xs font-medium text-slate-600">{o.vehicle.brand} {o.vehicle.model} <span className="text-slate-300">•</span> {o.date}</p>
+                    <p className="text-xs text-slate-500">{centreOf(o.tenantId)?.name ?? "Service centre"} <span className="text-slate-300">•</span> <strong className="font-semibold text-slate-900">{money(o.amount)}</strong></p>
+                  </div>
+                  <div>
                     <Badge tone={statusTone(o.status)}>{statusLabel(o.status)}</Badge>
                   </div>
                 </Link>

@@ -9,17 +9,21 @@
     "typecheck": "tsc --noEmit",
     "android:sync": "cap sync android",
     "android:debug": "cd android && gradlew assembleDebug",
-    "android:release": "cd android && gradlew bundleRelease"
+    "android:release": "cd android && gradlew bundleRelease",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",
     "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.6.2",
+    "@opennextjs/cloudflare": "^1.20.17",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.468.0",
-    "next": "16.4.2",
+    "next": "^16.4.6",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-leaflet": "^5.0.0",
@@ -37,6 +41,7 @@
     "@types/react-dom": "^19.0.0",
     "postcss": "^8.5.0",
     "tailwindcss": "^4.1.0",
-    "typescript": "^6.0.0"
+    "typescript": "^6.0.0",
+    "wrangler": "^4.162.0"
   }
 }
