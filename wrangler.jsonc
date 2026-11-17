@@ -14,5 +14,20 @@
       "service": "vehical-service-platform"
     }
   ],
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  "account_id":"97a30b923874c385eda1fbd46741bea1",
+ "d1_databases": [
+  {
+    "binding": "CENTRE_DB",
+    "database_name": "autoserve-centre",
+    "database_id": "06fbaf86-2169-4d39-ab20-320b03e3c58f",
+    "migrations_dir": "migrations/centre"
+  },
+  {
+    "binding": "CUSTOMER_DB",
+    "database_name": "autoserve-customer",
+    "database_id": "cb0342d0-75ee-4239-b5e8-a036e4157e12",
+    "migrations_dir": "migrations/customer"
+  }
+]
 }
