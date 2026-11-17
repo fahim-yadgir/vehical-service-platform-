@@ -16,6 +16,8 @@ type Props = {
   pageSize?: number;
   /** Header names of columns that hold buttons or dropdowns: no sort, search or export on them. */
   plainColumns?: string[];
+  /** Set to false to hide the search and Export bar, when the page puts its own search and export beside its buttons. */
+  toolbar?: boolean;
 };
 
 // Columns with these headers never get sort / search / export.
@@ -54,7 +56,7 @@ function csvCell(value: string) {
   return `"${s.replace(/"/g, '""')}"`;
 }
 
-function downloadCsv(name: string, header: string[], body: string[][]) {
+export function downloadCsv(name: string, header: string[], body: string[][]) {
   const lines = [header, ...body].map((r) => r.map(csvCell).join(","));
   const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -90,6 +92,7 @@ export default function DataTable({
   exportName = "export",
   pageSize = 50,
   plainColumns = [],
+  toolbar = true,
 }: Props) {
   const plain = new Set([...ALWAYS_PLAIN, ...plainColumns]);
   const isPlain = (c: number) => plain.has(headers[c]);
@@ -172,7 +175,7 @@ export default function DataTable({
 
   return (
     <div className="space-y-3">
-      {rows.length > 0 && (
+      {toolbar && rows.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           {searchable ? (
             <label className="relative block w-full max-w-xs">
