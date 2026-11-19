@@ -149,11 +149,13 @@ export default function LocationPicker({
       <div className="relative">
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search area, street or landmark"
-          className="input pl-10 pr-10"
-        />
+  type="text"
+  maxLength={100}
+  value={query}
+  onChange={(event) => setQuery(event.target.value)}
+  placeholder="Search area, street or landmark"
+  className="input pl-10 pr-10"
+/>
         {searching && (
           <Loader2 size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 animate-spin text-slate-400" />
         )}

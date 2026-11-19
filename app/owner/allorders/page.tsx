@@ -332,15 +332,14 @@ export default function OwnerOrders() {
               />
 
               <input
-                maxLength={42}
-                aria-label="Search orders"
-                className="input w-full !pl-9"
-                placeholder="Search orders…"
-                value={query}
-                onChange={(event) =>
-                  setQuery(event.target.value)
-                }
-              />
+  type="text"
+  maxLength={42}
+  aria-label="Search orders"
+  className="input w-full !pl-9"
+  placeholder="Search orders…"
+  value={query}
+  onChange={(event) => setQuery(event.target.value)}
+/>
             </label>
 
             <div className="ml-auto flex items-center gap-2">

@@ -70,12 +70,14 @@ export default function AddStaffForm({
     <label className="block space-y-2">
       <span className="text-sm font-bold text-slate-700">{label}</span>
       <input
-        value={form[key]}
-        onChange={(e) => set(key, e.target.value)}
-        className="input"
-        aria-invalid={!!errors[key]}
-        {...props}
-      />
+  type="text"
+  maxLength={100}
+  value={form[key]}
+  onChange={(e) => set(key, e.target.value)}
+  className="input"
+  aria-invalid={!!errors[key]}
+  {...props}
+/>
       {errors[key] && (
         <span
           role="alert"

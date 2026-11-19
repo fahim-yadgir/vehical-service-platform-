@@ -145,28 +145,31 @@ export default function Revenue() {
               {preset === "custom" && (
                 <div className="flex items-center gap-2">
                   <input
-                    type="date"
-                    value={customFrom}
-                    onChange={(e) => {
-                      setCustomFrom(e.target.value);
-                      setPage(1);
-                    }}
-                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
+                      type="date"
+                      value={customFrom}
+                      max={new Date().toISOString().split("T")[0]}
+                      onChange={(e) => {
+                        setCustomFrom(e.target.value);
+                        setPage(1);
+                      }}
+                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
 
                   <span className="text-sm text-slate-500">
                     to
                   </span>
 
                   <input
-                    type="date"
-                    value={customTo}
-                    onChange={(e) => {
-                      setCustomTo(e.target.value);
-                      setPage(1);
-                    }}
-                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
+                          type="date"
+                          value={customTo}
+                          min={customFrom || undefined}
+                          max={new Date().toISOString().split("T")[0]}
+                          onChange={(e) => {
+                            setCustomTo(e.target.value);
+                            setPage(1);
+                          }}
+                          className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
                 </div>
               )}
             </div>

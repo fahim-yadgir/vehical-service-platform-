@@ -81,15 +81,21 @@ export default function AdminPlans() {
               </p>
             </div>
             <input
-              aria-label={`${selected} orders per month limit`}
-              inputMode="numeric"
-              className="input w-28 text-right"
-              value={limitForm[selected] ?? "0"}
-              onChange={(e) => {
-                setLimitForm({ ...limitForm, [selected]: e.target.value.replace(/\D/g, "").slice(0, 6) });
-                setSaved(false);
-              }}
-            />
+                  type="text"
+                  aria-label={`${selected} orders per month limit`}
+                  inputMode="numeric"
+                  maxLength={6}
+                  pattern="[0-9]*"
+                  className="input w-28 text-right"
+                  value={limitForm[selected] ?? "0"}
+                  onChange={(e) => {
+                    setLimitForm({
+                      ...limitForm,
+                      [selected]: e.target.value.replace(/\D/g, "").slice(0, 6),
+                    });
+                    setSaved(false);
+                  }}
+                />
           </div>
 
           {isTrial ? (
@@ -109,15 +115,21 @@ export default function AdminPlans() {
                   <label className="flex items-center gap-2">
                     <span className="text-sm font-bold text-slate-500">₹</span>
                     <input
-                      aria-label={`${p.name} price`}
-                      inputMode="numeric"
-                      className="input w-36 text-right"
-                      value={form[p.name] ?? "0"}
-                      onChange={(e) => {
-                        setForm({ ...form, [p.name]: e.target.value.replace(/\D/g, "").slice(0, 7) });
-                        setSaved(false);
-                      }}
-                    />
+                          type="text"
+                          aria-label={`${p.name} price`}
+                          inputMode="numeric"
+                          maxLength={7}
+                          pattern="[0-9]*"
+                          className="input w-36 text-right"
+                          value={form[p.name] ?? "0"}
+                          onChange={(e) => {
+                            setForm({
+                              ...form,
+                              [p.name]: e.target.value.replace(/\D/g, "").slice(0, 7),
+                            });
+                            setSaved(false);
+                          }}
+                        />
                   </label>
                 </li>
               ))}

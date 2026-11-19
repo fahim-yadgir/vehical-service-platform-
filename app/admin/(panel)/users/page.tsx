@@ -89,13 +89,15 @@ export default function Users() {
             <label className="relative block">
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search name or mobile"
-                aria-label="Search users"
-                className="input"
-                style={{ width: "auto", paddingLeft: "2.25rem" }}
-              />
+  type="text"
+  value={query}
+  onChange={(e) => setQuery(e.target.value)}
+  placeholder="Search name or mobile"
+  aria-label="Search users"
+  maxLength={50}
+  className="input"
+  style={{ width: "auto", paddingLeft: "2.25rem" }}
+/>
             </label>
             <select
               value={tenant}

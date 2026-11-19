@@ -51,13 +51,14 @@ export default function StaffOrders() {
             ))}
           </div>
           <input
-            maxLength={32}
-            aria-label="Search orders"
-            className="input max-w-xs"
-            placeholder="Search order, customer, vehicle…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+  type="text"
+  maxLength={32}
+  aria-label="Search orders"
+  className="input max-w-xs"
+  placeholder="Search order, customer, vehicle…"
+  value={query}
+  onChange={(e) => setQuery(e.target.value)}
+/>
         </div>
 
         <DataTable

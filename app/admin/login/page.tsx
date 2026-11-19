@@ -54,15 +54,17 @@ export default function AdminLogin() {
 
           <form onSubmit={submit} className="mt-7 space-y-4">
             <Input
-              inputMode="numeric"
-              maxLength={10}
-              required
-              label="Mobile Number"
-              type="tel"
-              placeholder="Enter admin mobile number"
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-            />
+  inputMode="numeric"
+  maxLength={10}
+  required
+  label="Mobile Number"
+  type="tel"
+  placeholder="Enter admin mobile number"
+  value={mobile}
+  onChange={(e) =>
+    setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))
+  }
+/>
 
             <Input
               required

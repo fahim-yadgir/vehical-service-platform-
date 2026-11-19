@@ -482,13 +482,13 @@ function NewBooking() {
               </span>
 
               <input
-                className="input"
-                value={notes}
-                onChange={(event) =>
-                  setNotes(event.target.value)
-                }
-                placeholder="e.g. Strange noise from the front"
-              />
+  type="text"
+  className="input"
+  maxLength={250}
+  value={notes}
+  onChange={(event) => setNotes(event.target.value)}
+  placeholder="e.g. Strange noise from the front"
+/>
             </label>
 
           </div>

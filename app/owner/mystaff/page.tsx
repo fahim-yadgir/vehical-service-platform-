@@ -251,27 +251,30 @@ function EditStaffModal({ member, onClose, onSave, onToggleStatus, onResetPasswo
           <label className="block space-y-2">
             <span className="text-sm font-bold text-slate-700">Name</span>
             <input
-              className="input"
-              maxLength={32}
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setError("");
-              }}
-            />
+  type="text"
+  className="input"
+  maxLength={32}
+  required
+  value={name}
+  onChange={(e) => {
+    setName(e.target.value);
+    setError("");
+  }}
+/>
           </label>
           <label className="block space-y-2">
             <span className="text-sm font-bold text-slate-700">Email (optional)</span>
             <input
-              type="email"
-              className="input"
-              value={email}
-              placeholder="name@example.com"
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setError("");
-              }}
-            />
+  type="email"
+  className="input"
+  maxLength={42}
+  value={email}
+  placeholder="name@example.com"
+  onChange={(e) => {
+    setEmail(e.target.value);
+    setError("");
+  }}
+/>
           </label>
           <div>
             <p className="text-sm font-bold text-slate-700">Mobile (login)</p>
