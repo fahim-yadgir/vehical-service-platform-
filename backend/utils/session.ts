@@ -41,3 +41,49 @@ export function sessionCookieOptions(expiresAt: Date) {
     expires: expiresAt,
   };
 }
+export type SessionUser = {
+  id: string;
+  name: string;
+  role: "admin" | "owner" | "manager" | "staff";
+  tenantId: string | null;
+  mustChangePassword: boolean;
+};
+
+type SessionRow = {
+  id: string;
+  name: string;
+  role: SessionUser["role"];
+  tenant_id: string | null;
+  must_change_password: number;
+  status: string;
+  tenant_status: string | null;
+};
+
+// Cookie ke token se logged-in user nikalta hai. Valid na ho to null.
+export async function getSessionUser(db: D1Database, token: string | undefined): Promise<SessionUser | null> {
+  if (!token) return null;
+
+  const row = await db
+    .prepare(
+      `SELECT u.id, u.name, u.role, u.tenant_id, u.must_change_password, u.status,
+              t.status AS tenant_status
+       FROM sessions s
+       JOIN users u ON u.id = s.user_id
+       LEFT JOIN tenants t ON t.id = u.tenant_id
+       WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ?`
+    )
+    .bind(await hashToken(token), new Date().toISOString())
+    .first<SessionRow>();
+
+  if (!row) return null;
+  if (row.status !== "Active") return null;
+  if (row.tenant_id && row.tenant_status !== "Active") return null;
+
+  return {
+    id: row.id,
+    name: row.name,
+    role: row.role,
+    tenantId: row.tenant_id,
+    mustChangePassword: row.must_change_password === 1,
+  };
+}

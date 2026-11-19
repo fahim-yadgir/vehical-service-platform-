@@ -14,25 +14,32 @@ const MapView = dynamic(() => import("./MapView"), {
   ),
 });
 
-export type PickedLocation = LatLng & { 
+export type PickedLocation = LatLng & {
   address: string;
   city?: string;
   state?: string;
   pincode?: string;
 };
 
-type SearchResult = { 
-  place_id: number; 
-  display_name: string; 
-  lat: string; 
+type NominatimAddress = {
+  city?: string;
+  town?: string;
+  village?: string;
+  state?: string;
+  postcode?: string;
+};
+
+type SearchResult = {
+  place_id: number;
+  display_name: string;
+  lat: string;
   lon: string;
-  address?: {
-    city?: string;
-    town?: string;
-    village?: string;
-    state?: string;
-    postcode?: string;
-  };
+  address?: NominatimAddress;
+};
+
+type ReverseGeocodeResponse = {
+  display_name?: string;
+  address?: NominatimAddress;
 };
 
 const DEFAULT_CENTER: LatLng = { lat: 18.5204, lng: 73.8567 }; // Pune
@@ -43,8 +50,8 @@ async function reverseGeocode({ lat, lng }: LatLng): Promise<PickedLocation> {
       `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`
     );
     if (!res.ok) throw new Error();
-    const data = await res.json();
-    
+    const data = (await res.json()) as ReverseGeocodeResponse;
+
     const addressDetails = data.address || {};
     const city = addressDetails.city || addressDetails.town || addressDetails.village || "";
     const state = addressDetails.state || "";
@@ -83,7 +90,7 @@ export default function LocationPicker({
 
   async function pick(next: LatLng, knownResult?: SearchResult) {
     const id = ++requestId.current;
-    
+
     if (knownResult) {
       const addr = knownResult.address || {};
       const city = addr.city || addr.town || addr.village || "";
@@ -112,9 +119,9 @@ export default function LocationPicker({
       setSearching(true);
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=in&addressdetails=1&q=${encodeURIComponent(text)}`,
+          `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=in&addressdetails=1&q=${encodeURIComponent(text)}`
         );
-        setResults(res.ok ? await res.json() : []);
+        setResults(res.ok ? ((await res.json()) as SearchResult[]) : []);
       } catch {
         setResults([]);
       } finally {
@@ -140,7 +147,7 @@ export default function LocationPicker({
         setLocating(false);
         setMessage("Could not get your location. Allow location access or search below.");
       },
-      { enableHighAccuracy: true, timeout: 10000 },
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   }
 

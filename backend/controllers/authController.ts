@@ -1,9 +1,14 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCentreDb } from "@/backend/db";
 import { verifyPassword } from "@/backend/utils/password";
-import { createSession, SESSION_COOKIE, sessionCookieOptions } from "@/backend/utils/session";
-
+import { NextRequest, NextResponse } from "next/server";
+import {
+  createSession,
+  getSessionUser,
+  hashToken,
+  SESSION_COOKIE,
+  sessionCookieOptions,
+} from "@/backend/utils/session";
 const loginSchema = z.object({
   mobile: z.string().trim().regex(/^\d{10}$/),
   password: z.string().min(1).max(200),
@@ -72,5 +77,27 @@ export async function loginController(request: Request): Promise<NextResponse> {
     },
   });
   response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(expiresAt));
+  return response;
+}
+export async function meController(request: NextRequest): Promise<NextResponse> {
+  const db = getCentreDb();
+  const user = await getSessionUser(db, request.cookies.get(SESSION_COOKIE)?.value);
+  if (!user) return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+  return NextResponse.json({ user });
+}
+
+export async function logoutController(request: NextRequest): Promise<NextResponse> {
+  const db = getCentreDb();
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+
+  if (token) {
+    await db
+      .prepare("UPDATE sessions SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL")
+      .bind(new Date().toISOString(), await hashToken(token))
+      .run();
+  }
+
+  const response = NextResponse.json({ ok: true });
+  response.cookies.set(SESSION_COOKIE, "", sessionCookieOptions(new Date(0)));
   return response;
 }
