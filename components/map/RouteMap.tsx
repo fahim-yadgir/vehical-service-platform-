@@ -37,6 +37,16 @@ function FitTo({ points, refitKey }: { points: Point[]; refitKey: string }) {
 
 type Route = { coords: [number, number][]; km: number; mins: number };
 
+type OsrmRouteResponse = {
+  routes?: {
+    distance: number;
+    duration: number;
+    geometry: {
+      coordinates: [number, number][];
+    };
+  }[];
+};
+
 export default function RouteMap({ destination, address, height = 380 }: { destination: Point; address: string; height?: number }) {
   const [me, setMe] = useState<Point | null>(null);
   const [geoError, setGeoError] = useState("");
@@ -71,11 +81,12 @@ export default function RouteMap({ destination, address, height = 380 }: { desti
       `https://router.project-osrm.org/route/v1/driving/${me.lng},${me.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson`,
     )
       .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((data) => {
+      .then((raw) => {
+        const data = raw as OsrmRouteResponse;
         const r = data.routes?.[0];
         if (!r) return;
         setRoute({
-          coords: (r.geometry.coordinates as [number, number][]).map(([lng, lat]) => [lat, lng]),
+          coords: r.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
           km: r.distance / 1000,
           mins: Math.max(1, Math.round(r.duration / 60)),
         });
