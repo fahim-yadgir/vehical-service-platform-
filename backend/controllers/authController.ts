@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getCentreDb } from "@/backend/db";
-import { verifyPassword } from "@/backend/utils/password";
+import { verifyPassword, hashPassword } from "@/backend/utils/password";
 import { NextRequest, NextResponse } from "next/server";
 import {
   createSession,
@@ -9,11 +9,17 @@ import {
   SESSION_COOKIE,
   sessionCookieOptions,
 } from "@/backend/utils/session";
+import {requireRole} from "@/backend/utils/authGuard";
+
 const loginSchema = z.object({
   mobile: z.string().trim().regex(/^\d{10}$/),
   password: z.string().min(1).max(200),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: z.string().min(8).max(200),
+});
 type UserRow = {
   id: string;
   tenant_id: string | null;
@@ -100,4 +106,58 @@ export async function logoutController(request: NextRequest): Promise<NextRespon
   const response = NextResponse.json({ ok: true });
   response.cookies.set(SESSION_COOKIE, "", sessionCookieOptions(new Date(0)));
   return response;
+}
+
+export async function changePasswordController(request: NextRequest): Promise<NextResponse> {
+  // TODO: rate limit (purana password guess karne se rokne ke liye)
+  const db = getCentreDb();
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const user = await getSessionUser(db, token);
+  if (!user || !token) {
+    return NextResponse.json({ error: "Not logged in" }, { status: 401 });
+  }
+
+  const raw = await request.json().catch(() => null);
+  const parsed = changePasswordSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid input. New password must be at least 8 characters." },
+      { status: 400 }
+    );
+  }
+  const { currentPassword, newPassword } = parsed.data;
+
+  if (currentPassword === newPassword) {
+    return NextResponse.json(
+      { error: "New password must be different from the current password" },
+      { status: 400 }
+    );
+  }
+
+  const row = await db
+    .prepare("SELECT password_hash FROM users WHERE id = ?")
+    .bind(user.id)
+    .first<{ password_hash: string }>();
+
+  const currentOk = await verifyPassword(currentPassword, row?.password_hash ?? DUMMY_HASH);
+  if (!row || !currentOk) {
+    // 400, 401 nahi: frontend 401 ko "session khatam" maanke logout na kar de
+    return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 });
+  }
+
+  const newHash = await hashPassword(newPassword);
+  const now = new Date().toISOString();
+  const currentTokenHash = await hashToken(token);
+
+  // Dono updates ek transaction me: password badlo aur baaki sessions band karo
+  await db.batch([
+    db
+      .prepare("UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?")
+      .bind(newHash, now, user.id),
+    db
+      .prepare("UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL AND token_hash <> ?")
+      .bind(now, user.id, currentTokenHash),
+  ]);
+
+  return NextResponse.json({ ok: true });
 }
