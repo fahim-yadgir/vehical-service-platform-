@@ -37,3 +37,11 @@ export function clearSession() {
     localStorage.removeItem("vehicle-service-account");
   }
 }
+export async function signOut() {
+  try {
+    await fetch("/api/auth/logout", { method: "POST" });
+  } catch {
+    // network fail hone par bhi local session saaf karo
+  }
+  clearSession();
+}

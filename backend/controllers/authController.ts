@@ -9,11 +9,11 @@ import {
   SESSION_COOKIE,
   sessionCookieOptions,
 } from "@/backend/utils/session";
-import {requireRole} from "@/backend/utils/authGuard";
 
 const loginSchema = z.object({
   mobile: z.string().trim().regex(/^\d{10}$/),
   password: z.string().min(1).max(200),
+  portal: z.enum(["admin","centre"])
 });
 
 const changePasswordSchema = z.object({
@@ -43,7 +43,7 @@ export async function loginController(request: Request): Promise<NextResponse> {
   const parsed = loginSchema.safeParse(raw);
   if (!parsed.success) return NextResponse.json(INVALID, { status: 400 });
 
-  const { mobile, password } = parsed.data;
+  const { mobile, password, portal } = parsed.data;
   const db = getCentreDb();
 
   const user = await db
@@ -55,6 +55,10 @@ export async function loginController(request: Request): Promise<NextResponse> {
 
   const passwordOk = await verifyPassword(password, user?.password_hash ?? DUMMY_HASH);
   if (!user || !passwordOk) return NextResponse.json(INVALID, { status: 401 });
+
+  // Galat portal pe wahi message, taaki pata na chale ki ye admin ka mobile hai
+  const portalAllowed = portal === "admin" ? user.role === "admin" : user.role !== "admin";
+  if (!portalAllowed) return NextResponse.json(INVALID, { status: 401 });
 
   if (user.status !== "Active") {
     return NextResponse.json({ error: "Your account is suspended. Please contact support." }, { status: 403 });

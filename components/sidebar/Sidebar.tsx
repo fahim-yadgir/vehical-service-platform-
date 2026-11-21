@@ -25,7 +25,7 @@ import {
   type LucideIcon,
   UserCircle,
 } from "lucide-react";
-import { clearSession, roleLabels, type Role } from "../../lib/auth";
+import { signOut, roleLabels, type Role } from "../../lib/auth";
 import { useSidebar } from "../layout/SidebarContext";
 
 const menus: Record<Role, Array<[string, string, LucideIcon]>> = {
@@ -73,8 +73,8 @@ export default function Sidebar({ role }: { role: Role }) {
   const router = useRouter();
   useBackHandler(mobileOpen, closeMobile);
 
-  const logout = () => {
-    clearSession();
+  const logout = async () => {
+    await signOut();
     router.replace(role === "admin" ? "/admin/login" : "/login");
   };
 

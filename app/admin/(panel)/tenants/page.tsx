@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Topbar from "../../../../components/navbar/Topbar";
-import DataTable from "../../../../components/tables/DataTable";
 import Badge from "../../../../components/ui/Badge";
 import Button from "../../../../components/ui/Button";
 import AddTenantForm, {
@@ -17,7 +16,6 @@ import {
   restoreStaff,
   restoreTenants,
   store,
-  tenantHeadcount,
   useAppSelector,
   type Tenant,
   type TenantFilter,
@@ -68,10 +66,13 @@ function matchesFilter(
   }
 }
 
+const pageSize = 10;
+
 export default function Tenants() {
   const items = useAppSelector((state) => state.tenants);
   const staff = useAppSelector((state) => state.staff);
   const selectedFilter = useAppSelector((state) => state.tenantFilter);
+  const [page, setPage] = useState(1);
   const [showTenantForm, setShowTenantForm] = useState(false);
   const [credentials, setCredentials] = useState<{
     owner: string;
@@ -81,7 +82,6 @@ export default function Tenants() {
     reset?: boolean;
   } | null>(null);
 
-  const pageSize = 10;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayTime = today.getTime();
@@ -89,6 +89,10 @@ export default function Tenants() {
   const filteredItems = items.filter((tenant) =>
     matchesFilter(tenant, selectedFilter, todayTime, thirtyDays),
   );
+
+  const offset = (page - 1) * pageSize;
+  const pagedItems = filteredItems.slice(offset, offset + pageSize);
+  const hasNextPage = offset + pageSize < filteredItems.length;
 
   useEffect(() => {
     restoreStaff();
@@ -118,7 +122,6 @@ export default function Tenants() {
         users: 1,
         createdAt: ymd(now),
         subscriptionExpiresAt: expires,
-        // the first entry of the subscription history
         subscriptionHistory: [
           newSubscriptionRecord({
             plan: data.plan,
@@ -130,6 +133,7 @@ export default function Tenants() {
         ],
       },
     });
+    setPage(1);
     setShowTenantForm(false);
     void createAccount({
       mobile: data.mobile,
@@ -148,6 +152,7 @@ export default function Tenants() {
   }
 
   function changeFilter(filter: TenantFilter) {
+    setPage(1);
     store.dispatch({ type: "tenants/filterChanged", payload: filter });
   }
 
@@ -207,6 +212,7 @@ export default function Tenants() {
             {showTenantForm ? "Close form" : "Add service centre"}
           </Button>
         </div>
+
         {showTenantForm && (
           <AddTenantForm
             existingMobiles={[
@@ -219,51 +225,53 @@ export default function Tenants() {
             onCancel={() => setShowTenantForm(false)}
           />
         )}
-        <div className="min-w-0">
-          {/* The table pages, searches, sorts and exports ALL filtered tenants itself.
-              key={selectedFilter}: a new filter starts the table again from page 1. */}
-          <DataTable
-            key={selectedFilter}
-            pageSize={pageSize}
-            headers={[
-              "Tenant",
-              "Owner",
-              "Users",
-              "Plan",
-              "Pay date",
-              "Amount",
-              "Subscription expiry",
-              "Status",
-              "Action",
-            ]}
-            exportName="tenants"
-            rows={filteredItems.map((tenant) => {
-              // Pay date and Amount come from the tenant's latest subscription
-              const last = latestRecord(tenant);
-              return [
-                <b key="name">{tenant.name}</b>,
-                tenant.owner,
-                String(tenantHeadcount(staff, tenant.id).total),
-                tenant.plan,
-                payDateLabel(last),
-                amountLabel(last),
-                formatDate(tenant.subscriptionExpiresAt),
-                <Badge
-                  key="status"
-                  tone={tenant.status === "Active" ? "green" : "red"}
-                >
-                  {tenant.status}
-                </Badge>,
-                <Link
-                  key="actions"
-                  href={`/admin/tenants/${tenant.id}`}
-                  className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold !text-white hover:bg-slate-700"
-                >
-                  Edit
-                </Link>,
-              ];
-            })}
-          />
+
+        <div className="min-w-0 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table className="w-full border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-xs uppercase text-slate-600">
+                <th className="px-4 py-3">Tenant</th>
+                <th className="px-4 py-3">Owner</th>
+                <th className="px-4 py-3">Plan</th>
+                <th className="px-4 py-3">Pay date</th>
+                <th className="px-4 py-3">Amount</th>
+                <th className="px-4 py-3">Subscription expiry</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagedItems.map((tenant) => {
+                const last = latestRecord(tenant);
+                return (
+                  <tr key={tenant.id} className="border-b border-slate-100">
+                    <td className="px-4 py-3 font-bold">{tenant.name}</td>
+                    <td className="px-4 py-3">{tenant.owner}</td>
+                    <td className="px-4 py-3">{tenant.plan}</td>
+                    <td className="px-4 py-3">{payDateLabel(last)}</td>
+                    <td className="px-4 py-3">{amountLabel(last)}</td>
+                    <td className="px-4 py-3">
+                      {formatDate(tenant.subscriptionExpiresAt)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge tone={tenant.status === "Active" ? "green" : "red"}>
+                        {tenant.status}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/admin/tenants/${tenant.id}`}
+                        className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold !text-white hover:bg-slate-700"
+                      >
+                        Edit
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
           {filteredItems.length === 0 && (
             <p className="py-10 text-center text-sm text-slate-500">
               {items.length === 0
@@ -271,6 +279,28 @@ export default function Tenants() {
                 : "No tenants match this filter."}
             </p>
           )}
+        </div>
+
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-600">
+            Page {page}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Previous
+            </Button>
+            <Button
+              type="button"
+              disabled={!hasNextPage}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
 
