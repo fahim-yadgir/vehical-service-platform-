@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, User } from "lucide-react";
-import { clearSession, getSessionRole, roleLabels, type Role } from "../../lib/auth";
+import { signOut, getSessionRole, roleLabels, type Role } from "../../lib/auth";
 import { loadProfile } from "../../lib/customerProfile";
 import { getSessionAccount } from "../../lib/tenantAccounts";
 
@@ -41,9 +41,10 @@ export default function UserMenu() {
 
   if (!role) return null;
 
-  const logout = () => {
-    clearSession();
-    router.replace(role === "admin" ? "/admin/login" : "/login");
+
+  const logout =async  ()=> {
+   await signOut()  
+  router.replace(role === "admin" ? "/admin/login" : "/login");
   };
 
   return (
