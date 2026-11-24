@@ -39,8 +39,8 @@ type ApiErrorResponse = {
   error?: string;
 };
 
-const LOGIN_API_URL =
-  "https://vehical-service-platform.fyfy3790.workers.dev/api/admin/tenants";
+const TENANTS_API_URL =
+  `${process.env.NEXT_PUBLIC_APP_URL}/api/admin/tenants`;
 
 function fallbackPlanId(plan: LocalPlanItem): string {
   if (plan.name === "Free Trial") return "trial";
@@ -155,16 +155,16 @@ export default function AddTenantForm({
       const token =
         typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-      const res = await fetch(LOGIN_API_URL, {
+      const res = await fetch(TENANTS_API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          name: cleaned.name,
-          owner: cleaned.owner,
-          mobile: cleaned.mobile,
+          centreName: cleaned.name,
+          ownerName: cleaned.owner,
+          ownerMobile: cleaned.mobile,
           email: cleaned.email || undefined,
           planId: cleaned.planId,
         }),

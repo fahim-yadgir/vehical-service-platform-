@@ -1,26 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import useSWR from "swr";
 import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import Topbar from "../../../../components/navbar/Topbar";
 import KpiCard from "../../../../components/cards/KpiCard";
 import DataTable from "../../../../components/tables/DataTable";
 import PlatformRevenueChart from "../../../../components/admin/PlatformRevenueChart";
-import { restoreTenants, useAppSelector } from "../../../../lib/redux-store";
 import {
-  buildPayments,
   formatDate,
   formatINR,
-  inRange,
-  monthlyTotals,
   presetRange,
   previousRange,
-  total,
   ymd,
   type Preset,
 } from "../../../../lib/revenue";
 
 const PAGE_SIZE = 10;
+const API = `${process.env.NEXT_PUBLIC_APP_URL}`;
 
 const PRESET_LABELS: Record<Preset, string> = {
   thisMonth: "This month",
@@ -31,10 +28,119 @@ const PRESET_LABELS: Record<Preset, string> = {
   custom: "Custom range",
 };
 
-export default function Revenue() {
-  const tenants = useAppSelector((state) => state.tenants);
+type RevenueSummary = {
+  total: number;
+  count: number;
+  average: number;
+  payingTenants: number;
+};
 
-  // "Today" is read after mount so the server page and the browser never disagree.
+type RevenuePrevious = {
+  total: number;
+  count: number;
+};
+
+type RevenueMonthPoint = {
+  month: string;
+  total: number;
+  count: number;
+};
+
+type RevenuePaymentItem = {
+  id: string;
+  invoiceNo: string;
+  tenantId: string;
+  tenant: string;
+  plan: string;
+  amount: number;
+  payDate: string;
+};
+
+type RevenueApiResponse = {
+  summary?: RevenueSummary;
+  previous?: RevenuePrevious | null;
+  byMonth?: RevenueMonthPoint[];
+  payments?: RevenuePaymentItem[];
+  page?: number;
+  limit?: number;
+  hasNextPage?: boolean;
+  error?: string;
+};
+
+type RevenueSwrKey = readonly [
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  number,
+  number,
+];
+
+function formatMonthLabel(ym: string): string {
+  const parts = ym.split("-");
+  if (parts.length !== 2) return ym;
+  const year = Number(parts[0]);
+  const monthIdx = Number(parts[1]) - 1;
+  if (!Number.isFinite(year) || !Number.isFinite(monthIdx) || monthIdx < 0 || monthIdx > 11) {
+    return ym;
+  }
+  return new Date(Date.UTC(year, monthIdx, 1)).toLocaleDateString("en-IN", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function formatPayDate(isoOrYmd: string): string {
+  const d = new Date(isoOrYmd);
+  if (Number.isNaN(d.getTime())) return formatDate(isoOrYmd);
+  const ist = new Date(d.getTime() + 5.5 * 60 * 60 * 1000);
+  const ymdStr = `${ist.getUTCFullYear()}-${String(ist.getUTCMonth() + 1).padStart(2, "0")}-${String(
+    ist.getUTCDate()
+  ).padStart(2, "0")}`;
+  return formatDate(ymdStr);
+}
+
+async function fetchRevenue([
+  ,
+  baseUrl,
+  from,
+  to,
+  prevFrom,
+  prevTo,
+  page,
+  limit,
+]: RevenueSwrKey): Promise<RevenueApiResponse> {
+  const params = new URLSearchParams({
+    from,
+    to,
+    page: String(page),
+    limit: String(limit),
+  });
+
+  if (prevFrom && prevTo) {
+    params.set("prevFrom", prevFrom);
+    params.set("prevTo", prevTo);
+  }
+
+  const res = await fetch(`${baseUrl}/api/admin/revenue?${params.toString()}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  const raw: unknown = await res.json().catch(() => null);
+  const json = (raw && typeof raw === "object" ? raw : null) as RevenueApiResponse | null;
+
+  if (!res.ok || !json) {
+    throw new Error(json?.error ?? "Unable to load revenue analytics.");
+  }
+
+  return json;
+}
+
+export default function Revenue() {
   const [today, setToday] = useState<string | null>(null);
   const [preset, setPreset] = useState<Preset>("thisMonth");
   const [customFrom, setCustomFrom] = useState("");
@@ -42,14 +148,8 @@ export default function Revenue() {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    restoreTenants();
     setToday(ymd(new Date()));
   }, []);
-
-  const payments = useMemo(
-    () => (today ? buildPayments(tenants, today) : []),
-    [tenants, today]
-  );
 
   const changePreset = (next: Preset) => {
     if (next === "custom" && today && !customFrom && !customTo) {
@@ -65,47 +165,59 @@ export default function Revenue() {
     preset === "custom" &&
     (!customFrom || !customTo || customFrom > customTo);
 
-  const range =
-    !today || invalid
-      ? null
-      : preset === "custom"
-        ? { from: customFrom, to: customTo }
-        : presetRange(preset, today);
+  const range = useMemo(() => {
+    if (!today || invalid) return null;
+    return preset === "custom"
+      ? { from: customFrom, to: customTo }
+      : presetRange(preset, today);
+  }, [today, invalid, preset, customFrom, customTo]);
 
-  const view = useMemo(() => {
+  const prevRange = useMemo(() => {
     if (!range || !today) return null;
+    return previousRange(range, today, preset);
+  }, [range, today, preset]);
 
-    const rows = inRange(payments, range);
-    const gross = total(rows);
+  const swrKey: RevenueSwrKey | null =
+    range && !invalid
+      ? ([
+          "admin-revenue",
+          API,
+          range.from,
+          range.to,
+          prevRange?.from ?? "",
+          prevRange?.to ?? "",
+          page,
+          PAGE_SIZE,
+        ] as const)
+      : null;
 
-    const prev = total(
-      inRange(payments, previousRange(range, today, preset))
-    );
-
-    const growth = prev > 0 ? ((gross - prev) / prev) * 100 : null;
-
-    return {
-      rows,
-      gross,
-      growth,
-      avg: rows.length ? gross / rows.length : 0,
-      payingTenants: new Set(rows.map((p) => p.tenantId)).size,
-      months: monthlyTotals(payments, range, today),
-    };
-  }, [payments, range, today, preset]);
-
-  const pageCount = Math.max(
-    1,
-    Math.ceil((view?.rows.length ?? 0) / PAGE_SIZE)
+  const { data, error, isLoading } = useSWR<RevenueApiResponse, Error>(
+    swrKey,
+    fetchRevenue,
+    {
+      revalidateOnFocus: false,
+      revalidateIfStale: false,
+      revalidateOnReconnect: false,
+    }
   );
 
-  const current = Math.min(page, pageCount);
+  const summary = data?.summary ?? null;
+  const prevTotal = data?.previous?.total ?? 0;
+  const gross = summary?.total ?? 0;
+  const growth = prevTotal > 0 ? ((gross - prevTotal) / prevTotal) * 100 : null;
+  const payments = data?.payments ?? [];
 
-  const pageRows =
-    view?.rows.slice(
-      (current - 1) * PAGE_SIZE,
-      current * PAGE_SIZE
-    ) ?? [];
+  const chartData = useMemo(
+    () =>
+      (data?.byMonth ?? []).map((m) => ({
+        label: formatMonthLabel(m.month),
+        amount: Number(m.total) || 0,
+      })),
+    [data?.byMonth]
+  );
+
+  const hasMonthRevenue = chartData.some((m) => m.amount > 0);
+  const hasNextPage = Boolean(data?.hasNextPage);
 
   return (
     <>
@@ -120,7 +232,6 @@ export default function Revenue() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <Calendar size={18} className="text-slate-500" />
-
               <span className="text-sm font-semibold text-slate-700">
                 Time Period:
               </span>
@@ -129,9 +240,7 @@ export default function Revenue() {
             <div className="flex flex-wrap items-center gap-3">
               <select
                 value={preset}
-                onChange={(e) =>
-                  changePreset(e.target.value as Preset)
-                }
+                onChange={(e) => changePreset(e.target.value as Preset)}
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 {(Object.keys(PRESET_LABELS) as Preset[]).map((key) => (
@@ -141,7 +250,6 @@ export default function Revenue() {
                 ))}
               </select>
 
-              {/* Custom Range */}
               {preset === "custom" && (
                 <div className="flex items-center gap-2">
                   <input
@@ -153,11 +261,7 @@ export default function Revenue() {
                     }}
                     className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
-
-                  <span className="text-sm text-slate-500">
-                    to
-                  </span>
-
+                  <span className="text-sm text-slate-500">to</span>
                   <input
                     type="date"
                     value={customTo}
@@ -178,10 +282,15 @@ export default function Revenue() {
             </p>
           )}
 
+          {error && !summary && (
+            <p className="mt-3 text-sm font-medium text-rose-600">
+              {error.message}
+            </p>
+          )}
+
           {range && !invalid && (
             <p className="mt-3 text-sm text-slate-500">
-              Showing {formatDate(range.from)} –{" "}
-              {formatDate(range.to)}
+              Showing {formatDate(range.from)} – {formatDate(range.to)}
             </p>
           )}
         </div>
@@ -191,16 +300,12 @@ export default function Revenue() {
           <KpiCard
             icon="rupee"
             label="Gross revenue"
-            value={view ? formatINR(view.gross) : "–"}
+            value={isLoading && !summary ? "–" : summary ? formatINR(gross) : "–"}
             change={
-              view
-                ? view.growth === null
+              summary
+                ? growth === null
                   ? "No earlier data to compare"
-                  : `${
-                      view.growth >= 0 ? "+" : ""
-                    }${view.growth.toFixed(
-                      1
-                    )}% vs previous period`
+                  : `${growth >= 0 ? "+" : ""}${growth.toFixed(1)}% vs previous period`
                 : undefined
             }
           />
@@ -208,108 +313,82 @@ export default function Revenue() {
           <KpiCard
             icon="receipt"
             label="Invoices"
-            value={view ? view.rows.length : "–"}
+            value={isLoading && !summary ? "–" : summary ? summary.count : "–"}
           />
 
           <KpiCard
             icon="activity"
             label="Average payment"
-            value={view ? formatINR(view.avg) : "–"}
+            value={isLoading && !summary ? "–" : summary ? formatINR(summary.average) : "–"}
           />
 
           <KpiCard
             icon="building"
             label="Paying tenants"
-            value={view ? view.payingTenants : "–"}
+            value={isLoading && !summary ? "–" : summary ? summary.payingTenants : "–"}
           />
         </div>
 
         {/* Revenue Chart */}
         <div className="card p-6">
-          <h2 className="text-xl font-black">
-            Revenue by month
-          </h2>
-
+          <h2 className="text-xl font-black">Revenue by month</h2>
           <p className="muted mt-1 text-sm">
             Subscription revenue in the selected period
           </p>
 
-          {view && view.rows.length > 0 ? (
-            <PlatformRevenueChart data={view.months} />
+          {summary && hasMonthRevenue ? (
+            <PlatformRevenueChart data={chartData} />
           ) : (
             <p className="py-16 text-center text-sm text-slate-500">
               {invalid
                 ? "Choose a valid date range."
-                : "No payments in this period."}
+                : isLoading
+                  ? "Loading monthly revenue…"
+                  : "No payments in this period."}
             </p>
           )}
         </div>
 
         {/* Payments */}
         <div>
-          <h2 className="mb-3 text-lg font-black">
-            Payments
-          </h2>
+          <h2 className="mb-3 text-lg font-black">Payments</h2>
 
           <DataTable
-            headers={[
-              "Invoice",
-              "Date",
-              "Tenant",
-              "Plan",
-              "Amount",
-            ]}
-            rows={pageRows.map((p) => [
-              <span
-                key="i"
-                className="font-mono text-xs"
-              >
-                {p.id}
+            pageSize={PAGE_SIZE}
+            headers={["Invoice", "Date", "Tenant", "Plan", "Amount"]}
+            rows={payments.map((p) => [
+              <span key="i" className="font-mono text-xs">
+                {p.invoiceNo || p.id}
               </span>,
-
-              formatDate(p.date),
-
-              <b key="t">
-                {p.tenant}
-              </b>,
-
+              formatPayDate(p.payDate),
+              <b key="t">{p.tenant}</b>,
               p.plan,
-
-              <b key="a">
-                {formatINR(p.amount)}
-              </b>,
+              <b key="a">{formatINR(p.amount)}</b>,
             ])}
           />
 
-          {view && view.rows.length === 0 && (
+          {summary && payments.length === 0 && !isLoading && (
             <p className="py-8 text-center text-sm text-slate-500">
               No payments in this period.
             </p>
           )}
 
           {/* Pagination */}
-          {pageCount > 1 && (
+          {(page > 1 || hasNextPage) && (
             <nav
               className="mt-4 flex flex-wrap items-center justify-between gap-3"
               aria-label="Payment pagination"
             >
               <p className="text-sm text-slate-500">
-                Showing{" "}
-                {(current - 1) * PAGE_SIZE + 1}–
-                {Math.min(
-                  current * PAGE_SIZE,
-                  view?.rows.length ?? 0
-                )}{" "}
-                of {view?.rows.length} payments
+                Page {page}
+                {summary ? ` · ${summary.count} total in range` : ""}
               </p>
 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    setPage(Math.max(1, current - 1))
-                  }
-                  disabled={current === 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1 || isLoading}
                   aria-label="Previous page"
                   className="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -320,17 +399,13 @@ export default function Revenue() {
                   className="min-w-20 text-center text-sm font-semibold text-slate-700"
                   aria-live="polite"
                 >
-                  Page {current} of {pageCount}
+                  Page {page}
                 </span>
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setPage(
-                      Math.min(pageCount, current + 1)
-                    )
-                  }
-                  disabled={current === pageCount}
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={!hasNextPage || isLoading}
                   aria-label="Next page"
                   className="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >

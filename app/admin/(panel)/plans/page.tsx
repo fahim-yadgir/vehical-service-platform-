@@ -1,23 +1,17 @@
 "use client";
 
 import { useEffect, useState, type SyntheticEvent } from "react";
-import { CheckCircle2 } from "lucide-react";
+import useSWR from "swr";
+import { CheckCircle2, AlertTriangle, X } from "lucide-react";
 import Topbar from "../../../../components/navbar/Topbar";
 import Button from "../../../../components/ui/Button";
-import {
-  TIERS,
-  TRIAL_PLAN,
-  paidPlans,
-  plansOfTier,
-  usePlanLimits,
-  usePlanPrices,
-} from "../../../../lib/plans";
+import { TIERS, TRIAL_PLAN } from "../../../../lib/plans";
 
 /** The dropdown: the three tiers and the free trial. */
 const TYPES = [...TIERS, TRIAL_PLAN];
 const DAYS_OF_TRIAL = 14;
 const PLANS_API_URL =
-  "https://vehical-service-platform.fyfy3790.workers.dev/api/plans";
+  `${process.env.NEXT_PUBLIC_APP_URL}/api/plans`;
 
 export type ApiPlanItem = {
   id: string;
@@ -36,154 +30,197 @@ type PlansApiResponse = {
   error?: string;
 };
 
-type DisplayPlanItem = {
-  id: string;
-  name: string;
-  months: number;
+type PatchPlansPayload = {
+  prices?: Record<string, number>;
+  limits?: Record<string, number>;
+};
+
+const plansFetcher = async (url: string): Promise<PlansApiResponse> => {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  const data = (await res
+    .json()
+    .catch((): PlansApiResponse => ({}))) as PlansApiResponse;
+
+  if (!res.ok) {
+    throw new Error(
+      data.message || data.error || `Failed to load plans (${res.status}).`,
+    );
+  }
+
+  return data;
 };
 
 export default function AdminPlans() {
-  const { prices, loaded: pricesLoaded, save: savePrices } = usePlanPrices();
-  const { limits, loaded: limitsLoaded, save: saveLimits } = usePlanLimits();
   const [selected, setSelected] = useState<string>(TIERS[0]);
-  const [apiPlans, setApiPlans] = useState<ApiPlanItem[]>([]);
-  const [apiLoading, setApiLoading] = useState(true);
-  const [apiError, setApiError] = useState<string | null>(null);
 
-  // prices are kept per plan ("Silver 3 Months"), limits per tier ("Silver"); everything is saved together
+  const {
+    data: swrData,
+    error: swrError,
+    isLoading: apiLoading,
+    mutate,
+  } = useSWR<PlansApiResponse>(PLANS_API_URL, plansFetcher, {
+    revalidateOnFocus: false,
+    revalidateIfStale: false,
+    dedupingInterval: 60_000,
+  });
+
+  const apiPlans: ApiPlanItem[] = Array.isArray(swrData?.plans)
+    ? swrData.plans
+    : [];
+
+  // prices are kept per plan ("Silver 3 Months"), limits per tier ("Silver")
   const [form, setForm] = useState<Record<string, string>>({});
   const [limitForm, setLimitForm] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Confirmation Popup State
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingPayload, setPendingPayload] =
+    useState<PatchPlansPayload | null>(null);
+
+  const syncFormWithApiPlans = (list: ApiPlanItem[]) => {
+    if (list.length === 0) return;
+
+    const nextPrices: Record<string, string> = {};
+    const nextLimits: Record<string, string> = {};
+
+    for (const plan of list) {
+      nextPrices[plan.name] = String(plan.price ?? 0);
+      const limitKey = plan.tier ?? TRIAL_PLAN;
+      nextLimits[limitKey] = String(plan.orderLimit ?? 0);
+    }
+
+    setForm(nextPrices);
+    setLimitForm(nextLimits);
+  };
 
   useEffect(() => {
-    let active = true;
+    if (apiPlans.length > 0) {
+      syncFormWithApiPlans(apiPlans);
+    }
+  }, [apiPlans]);
 
-    async function fetchPlans() {
-      setApiLoading(true);
-      setApiError(null);
+  // Step 1: Validate and open confirmation popup
+  const handleOpenConfirm = (e: SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSaveError(null);
+    setSaved(false);
 
-      try {
-        const token =
-          typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (apiPlans.length === 0) {
+      setSaveError("Plans are still loading or unavailable. Please try again.");
+      return;
+    }
 
-        const res = await fetch(PLANS_API_URL, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          cache: "no-store",
-        });
+    // 1. Prices payload (only paid plans where tier !== null)
+    const pricesPayload: Record<string, number> = {};
+    const paidApiPlans = apiPlans.filter(
+      (p) => p.tier !== null && p.months > 0,
+    );
 
-        const data = (await res
-          .json()
-          .catch((): PlansApiResponse => ({}))) as PlansApiResponse;
+    for (const plan of paidApiPlans) {
+      const val = Math.min(9_999_999, Math.max(0, Number(form[plan.name]) || 0));
+      pricesPayload[plan.id] = val;
+    }
 
-        if (!res.ok) {
-          throw new Error(
-            data.message ||
-              data.error ||
-              `Failed to load plans (${res.status}).`,
-          );
-        }
-
-        if (!active) return;
-
-        const list = Array.isArray(data.plans) ? data.plans : [];
-        setApiPlans(list);
-
-        if (list.length > 0) {
-          const nextPrices: Record<string, string> = {};
-          const nextLimits: Record<string, string> = {};
-
-          for (const plan of list) {
-            nextPrices[plan.name] = String(plan.price ?? 0);
-            const limitKey = plan.tier ?? TRIAL_PLAN;
-            nextLimits[limitKey] = String(plan.orderLimit ?? 0);
-          }
-
-          setForm((prev) => ({ ...prev, ...nextPrices }));
-          setLimitForm((prev) => ({ ...prev, ...nextLimits }));
-        }
-      } catch (err) {
-        if (!active) return;
-        setApiError(
-          err instanceof Error
-            ? err.message
-            : "Network or CORS error while fetching plans.",
-        );
-      } finally {
-        if (active) setApiLoading(false);
+    // 2. Limits payload (Silver, Golden, Diamond & Free Trial — min 1 required by backend)
+    const limitsPayload: Record<string, number> = {};
+    for (const typeName of TYPES) {
+      const val = Number(limitForm[typeName]) || 0;
+      if (val >= 1) {
+        limitsPayload[typeName] = Math.min(100_000, val);
       }
     }
 
-    void fetchPlans();
+    const payload: PatchPlansPayload = {};
+    if (Object.keys(pricesPayload).length > 0) {
+      payload.prices = pricesPayload;
+    }
+    if (Object.keys(limitsPayload).length > 0) {
+      payload.limits = limitsPayload;
+    }
 
-    return () => {
-      active = false;
-    };
-  }, []);
+    if (!payload.prices && !payload.limits) {
+      setSaveError("Please enter at least one valid price or limit (min 1).");
+      return;
+    }
 
-  useEffect(() => {
-    if (!pricesLoaded) return;
-    setForm((prev) => ({
-      ...Object.fromEntries(
-        paidPlans.map((p) => [
-          p.name,
-          prices[p.name] ? String(prices[p.name]) : "0",
-        ]),
-      ),
-      ...prev,
-    }));
-  }, [pricesLoaded, prices]);
+    setPendingPayload(payload);
+    setShowConfirmModal(true);
+  };
 
-  useEffect(() => {
-    if (!limitsLoaded) return;
-    setLimitForm((prev) => ({
-      ...Object.fromEntries(
-        TYPES.map((t) => [t, limits[t] ? String(limits[t]) : "0"]),
-      ),
-      ...prev,
-    }));
-  }, [limitsLoaded, limits]);
+  // Step 2: Execute PATCH request after confirmation
+  const handleConfirmSave = async () => {
+    if (!pendingPayload) return;
 
-  const submit = (e: SyntheticEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    // merged with what is saved, so plans sold earlier keep their price and limit
-    savePrices({
-      ...prices,
-      ...Object.fromEntries(
-        paidPlans.map((p) => [p.name, Number(form[p.name]) || 0]),
-      ),
-    });
-    saveLimits({
-      ...limits,
-      ...Object.fromEntries(
-        TYPES.map((t) => [t, Number(limitForm[t]) || 0]),
-      ),
-    });
-    setSaved(true);
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
+      const res = await fetch(PLANS_API_URL, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(pendingPayload),
+      });
+
+      const data = (await res
+        .json()
+        .catch((): PlansApiResponse => ({}))) as PlansApiResponse;
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ||
+            data.message ||
+            `Failed to save plans (${res.status}).`,
+        );
+      }
+
+      if (Array.isArray(data.plans)) {
+        await mutate({ plans: data.plans }, { revalidate: false });
+        syncFormWithApiPlans(data.plans);
+      }
+
+      setSaved(true);
+      setShowConfirmModal(false);
+      setPendingPayload(null);
+    } catch (err) {
+      setSaveError(
+        err instanceof Error
+          ? err.message
+          : "Network or CORS error while updating plans.",
+      );
+      setShowConfirmModal(false);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const isTrial = selected === TRIAL_PLAN;
   const trialPlan = apiPlans.find((p) => p.id === "trial" || p.tier === null);
   const trialDays = trialPlan?.days || DAYS_OF_TRIAL;
-  const tierDurations = apiPlans.filter(
+  const displayedDurations = apiPlans.filter(
     (p) => p.tier === selected && p.months > 0,
   );
 
-  const displayedDurations: DisplayPlanItem[] =
-    tierDurations.length > 0
-      ? tierDurations.map((p) => ({
-          id: p.id,
-          name: p.name,
-          months: p.months,
-        }))
-      : plansOfTier(selected).map((p, index) => ({
-          id: `${selected.toLowerCase()}-${p.months}m-${index}`,
-          name: p.name,
-          months: p.months,
-        }));
+  const displayError =
+    saveError || (swrError instanceof Error ? swrError.message : null);
 
   return (
     <>
@@ -192,7 +229,10 @@ export default function AdminPlans() {
         subtitle="Set the price and monthly order limit of each subscription plan"
       />
       <div className="container">
-        <form onSubmit={submit} className="card max-w-2xl space-y-5 p-6">
+        <form
+          onSubmit={handleOpenConfirm}
+          className="card max-w-2xl space-y-5 p-6"
+        >
           <div>
             <h2 className="text-lg font-black text-slate-900">
               Plan prices &amp; limits
@@ -201,22 +241,22 @@ export default function AdminPlans() {
               Choose a plan type, then set the order limit and the price of each
               duration. A price of 0 means the price is not set yet. Revenue
               reports count a plan only after its price is set. Order limit is
-              per month; 0 means unlimited.
+              per month (1 to 100,000).
             </p>
           </div>
 
-          {apiLoading && (
+          {apiLoading && apiPlans.length === 0 && (
             <p className="text-xs font-semibold text-slate-500">
               Loading plans from server...
             </p>
           )}
 
-          {apiError && (
+          {displayError && (
             <div
               role="alert"
               className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs font-semibold text-amber-800"
             >
-              {apiError}
+              {displayError}
             </div>
           )}
 
@@ -241,7 +281,7 @@ export default function AdminPlans() {
               role="status"
               className="flex items-center gap-1.5 text-sm font-bold text-emerald-600"
             >
-              <CheckCircle2 size={16} /> Saved.
+              <CheckCircle2 size={16} /> Saved successfully.
             </p>
           )}
 
@@ -250,8 +290,8 @@ export default function AdminPlans() {
               <p className="font-bold text-slate-900">Orders per month</p>
               <p className="text-xs text-slate-500">
                 {isTrial
-                  ? "For the whole free trial"
-                  : `Applies to every ${selected} duration`}
+                  ? "For the whole free trial (min 1)"
+                  : `Applies to every ${selected} duration (min 1)`}
               </p>
             </div>
             <input
@@ -273,6 +313,10 @@ export default function AdminPlans() {
             <p className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-600">
               The free trial lasts {trialDays} days and is always free, so it
               has no price.
+            </p>
+          ) : displayedDurations.length === 0 && !apiLoading ? (
+            <p className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-500">
+              No durations found for {selected}.
             </p>
           ) : (
             <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-200">
@@ -308,12 +352,90 @@ export default function AdminPlans() {
             </ul>
           )}
 
-          <Button type="submit">Save prices &amp; limits</Button>
+          <Button type="submit" disabled={isSaving || apiLoading}>
+            Save prices &amp; limits
+          </Button>
           <p className="muted text-xs">
             Save covers every plan type, not only the one shown.
           </p>
         </form>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                  <AlertTriangle size={20} />
+                </div>
+                <div>
+                  <h3
+                    id="confirm-modal-title"
+                    className="text-base font-black text-slate-900"
+                  >
+                    Confirm pricing &amp; limits update
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    This will update prices and monthly order limits across all
+                    plan tiers.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => setShowConfirmModal(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                aria-label="Close modal"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-4 max-h-48 space-y-2 overflow-y-auto rounded-xl bg-slate-50 p-3 text-xs">
+              <p className="font-bold text-slate-700">Monthly Order Limits:</p>
+              <div className="grid grid-cols-2 gap-1.5 text-slate-600">
+                {TYPES.map((t) => (
+                  <div
+                    key={t}
+                    className="flex justify-between rounded bg-white px-2 py-1"
+                  >
+                    <span>{t}:</span>
+                    <span className="font-bold text-slate-900">
+                      {pendingPayload?.limits?.[t] ?? "Unchanged"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => setShowConfirmModal(false)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <Button
+                type="button"
+                disabled={isSaving}
+                onClick={handleConfirmSave}
+              >
+                {isSaving ? "Saving..." : "Yes, update plans"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

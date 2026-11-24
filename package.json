@@ -27,6 +27,7 @@
     "react-leaflet": "^5.0.0",
     "recharts": "^2.15.0",
     "server-only": "^0.0.1",
+    "swr": "^2.5.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {

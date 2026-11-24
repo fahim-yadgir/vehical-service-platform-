@@ -19,6 +19,7 @@ const limitsSchema = z.strictObject({
   Silver: z.number().int().min(1).max(100_000).optional(),
   Golden: z.number().int().min(1).max(100_000).optional(),
   Diamond: z.number().int().min(1).max(100_000).optional(),
+  "Free Trial": z.number().int().min(1).max(100_000).optional(),
 });
 
 const updatePlansSchema = z
@@ -119,6 +120,9 @@ export async function updatePlans(request: NextRequest): Promise<NextResponse> {
   }
   if (limits?.Diamond !== undefined) {
     statements.push(db.prepare("UPDATE plans SET order_limit = ? WHERE tier = 'Diamond'").bind(limits.Diamond));
+  }
+  if (limits?.["Free Trial"] !== undefined) {
+    statements.push(db.prepare("UPDATE plans SET order_limit = ? WHERE tier IS NULL").bind(limits["Free Trial"]));
   }
 
   // Sab ek saath: ya sab badlega, ya kuch nahi

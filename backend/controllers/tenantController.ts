@@ -297,108 +297,121 @@ function filterClause(filter: TenantFilter, now: Date): { where: string; binds: 
 }
 
 export async function tenantsDetails(request: NextRequest): Promise<NextResponse> {
-  const guard = await requireRole(request, ["admin"]);
-  if (!guard.ok) return guard.response;
+  try {
+    const guard = await requireRole(request, ["admin"]);
+    if (!guard.ok) return guard.response;
 
-  const parsed = listQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams));
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid query" }, { status: 400 });
-  }
-  const { page, limit, filter } = parsed.data;
-  const offset = (page - 1) * limit;
+    const parsed = listQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams));
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid query" }, { status: 400 });
+    }
+    const { page, limit, filter } = parsed.data;
+    const offset = (page - 1) * limit;
 
-  const now = new Date();
-  const { where, binds } = filterClause(filter, now);
-  const db = getCentreDb();
+    const now = new Date();
+    const { where, binds } = filterClause(filter, now);
+    const db = getCentreDb();
 
-  const listStmt = db
-    .prepare(
-      `SELECT
-         t.id,
-         t.name,
-         t.status,
-         t.mobile,
-         t.email,
-         t.subscription_expires_at,
-         t.created_at,
-         u.name AS owner_name,
-         p.name AS plan_name,
-         s.pay_date AS last_pay_date,
-         s.amount   AS last_amount
-       FROM tenants t
-       LEFT JOIN users u ON u.id = t.owner_user_id
-       LEFT JOIN plans p ON p.id = t.current_plan_id
-       LEFT JOIN subscriptions s ON s.id = (
-         SELECT id FROM subscriptions
-         WHERE tenant_id = t.id
-         ORDER BY ends_on DESC, starts_on DESC, id DESC
-         LIMIT 1
-       )
-       WHERE t.deleted_at IS NULL AND ${where}
-       ORDER BY t.created_at DESC, t.id DESC
-       LIMIT ? OFFSET ?`
-    )
-    .bind(...binds, limit + 1, offset);
+    const listStmt = db
+      .prepare(
+        `WITH latest_sub AS (
+           SELECT
+             tenant_id,
+             pay_date,
+             amount,
+             ROW_NUMBER() OVER (
+               PARTITION BY tenant_id
+               ORDER BY ends_on DESC, starts_on DESC, id DESC
+             ) AS rn
+           FROM subscriptions
+         )
+         SELECT
+           t.id,
+           t.name,
+           t.status,
+           t.mobile,
+           t.email,
+           t.subscription_expires_at,
+           t.created_at,
+           u.name AS owner_name,
+           p.name AS plan_name,
+           s.pay_date AS last_pay_date,
+           s.amount   AS last_amount
+         FROM tenants t
+         LEFT JOIN users u ON u.id = t.owner_user_id
+         LEFT JOIN plans p ON p.id = t.current_plan_id
+         LEFT JOIN latest_sub s ON s.tenant_id = t.id AND s.rn = 1
+         WHERE t.deleted_at IS NULL AND ${where}
+         ORDER BY t.created_at DESC, t.id DESC
+         LIMIT ? OFFSET ?`
+      )
+      .bind(...binds, limit + 1, offset);
 
-  const nowIso = now.toISOString();
-  const countStmt = db
-    .prepare(
-      `SELECT
-         COUNT(*) AS total,
-         COALESCE(SUM(CASE WHEN created_at >= ?1 THEN 1 ELSE 0 END), 0) AS new_count,
-         COALESCE(SUM(CASE WHEN created_at < ?1 THEN 1 ELSE 0 END), 0) AS old_count,
-         COALESCE(SUM(CASE WHEN subscription_expires_at >= ?2 AND subscription_expires_at <= ?3 THEN 1 ELSE 0 END), 0) AS expiring_count,
-         COALESCE(SUM(CASE WHEN subscription_expires_at < ?2 THEN 1 ELSE 0 END), 0) AS expired_count,
-         COALESCE(SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END), 0) AS active_count,
-         COALESCE(SUM(CASE WHEN status = 'Suspended' THEN 1 ELSE 0 END), 0) AS suspended_count
-       FROM tenants
-       WHERE deleted_at IS NULL`
-    )
-    .bind(
-      new Date(now.getTime() - 30 * DAY_MS).toISOString(),
-      nowIso,
-      new Date(now.getTime() + 30 * DAY_MS).toISOString()
+    const nowIso = now.toISOString();
+    const countStmt = db
+      .prepare(
+        `SELECT
+           COUNT(*) AS total,
+           COALESCE(SUM(CASE WHEN created_at >= ?1 THEN 1 ELSE 0 END), 0) AS new_count,
+           COALESCE(SUM(CASE WHEN created_at < ?1 THEN 1 ELSE 0 END), 0) AS old_count,
+           COALESCE(SUM(CASE WHEN subscription_expires_at >= ?2 AND subscription_expires_at <= ?3 THEN 1 ELSE 0 END), 0) AS expiring_count,
+           COALESCE(SUM(CASE WHEN subscription_expires_at < ?2 THEN 1 ELSE 0 END), 0) AS expired_count,
+           COALESCE(SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END), 0) AS active_count,
+           COALESCE(SUM(CASE WHEN status = 'Suspended' THEN 1 ELSE 0 END), 0) AS suspended_count
+         FROM tenants
+         WHERE deleted_at IS NULL`
+      )
+      .bind(
+        new Date(now.getTime() - 30 * DAY_MS).toISOString(),
+        nowIso,
+        new Date(now.getTime() + 30 * DAY_MS).toISOString()
+      );
+
+    const [listResult, countResult] = await db.batch([listStmt, countStmt]);
+    const fetched = (listResult.results ?? []) as ListRow[];
+    const c = ((countResult.results ?? [])[0] ?? {}) as Partial<CountRow>;
+
+    const hasNextPage = fetched.length > limit;
+    const rows = hasNextPage ? fetched.slice(0, limit) : fetched;
+
+    const tenants = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      owner: r.owner_name ?? "",
+      status: r.status,
+      plan: r.plan_name ?? "",
+      mobile: r.mobile,
+      email: r.email,
+      createdAt: r.created_at,
+      subscriptionExpiresAt: r.subscription_expires_at,
+      lastPayment: r.last_pay_date
+        ? { payDate: r.last_pay_date, amount: r.last_amount ?? 0 }
+        : null,
+    }));
+
+    return NextResponse.json({
+      tenants,
+      page,
+      limit,
+      hasNextPage,
+      counts: {
+        all: c.total ?? 0,
+        new: c.new_count ?? 0,
+        old: c.old_count ?? 0,
+        expiring: c.expiring_count ?? 0,
+        expired: c.expired_count ?? 0,
+        active: c.active_count ?? 0,
+        suspended: c.suspended_count ?? 0,
+      },
+    });
+  } catch (err) {
+    console.error("GET /api/admin/tenants error:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Internal server error" },
+      { status: 500 }
     );
-
-  const [listResult, countResult] = await db.batch([listStmt, countStmt]);
-  const fetched = (listResult.results ?? []) as ListRow[];
-  const c = ((countResult.results ?? [])[0] ?? {}) as Partial<CountRow>;
-
-  const hasNextPage = fetched.length > limit;
-  const rows = hasNextPage ? fetched.slice(0, limit) : fetched;
-
-  const tenants = rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    owner: r.owner_name ?? "",
-    status: r.status,
-    plan: r.plan_name ?? "",
-    mobile: r.mobile,
-    email: r.email,
-    createdAt: r.created_at,
-    subscriptionExpiresAt: r.subscription_expires_at,
-    lastPayment: r.last_pay_date
-      ? { payDate: r.last_pay_date, amount: r.last_amount ?? 0 }
-      : null,
-  }));
-
-  return NextResponse.json({
-    tenants,
-    page,
-    limit,
-    hasNextPage,
-    counts: {
-      all: c.total ?? 0,
-      new: c.new_count ?? 0,
-      old: c.old_count ?? 0,
-      expiring: c.expiring_count ?? 0,
-      expired: c.expired_count ?? 0,
-      active: c.active_count ?? 0,
-      suspended: c.suspended_count ?? 0,
-    },
-  });
+  }
 }
-
 /* ------------------------------------------------------------------ */
 /* GET /api/admin/tenants/[id]                                         */
 /* ------------------------------------------------------------------ */
