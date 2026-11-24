@@ -18,7 +18,7 @@ const loginSchema = z.object({
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1).max(200),
-  newPassword: z.string().min(8).max(200),
+  newPassword: z.string().min(8).max(200).regex(/[A-Za-z]/).regex(/\d/),
 });
 type UserRow = {
   id: string;

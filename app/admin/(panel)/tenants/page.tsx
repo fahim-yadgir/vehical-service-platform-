@@ -99,57 +99,63 @@ export default function Tenants() {
     restoreTenants();
   }, []);
 
-  function createTenant(data: NewTenant) {
-    const latestId = items.reduce(
-      (latest, tenant) =>
-        Math.max(latest, Number(tenant.id.replace(/\D/g, "")) || 0),
-      0,
-    );
-    const id = `TEN${String(latestId + 1).padStart(3, "0")}`;
-    const password = generateTempPassword();
-    const now = new Date();
-    const expires = planExpiry(data.plan, now);
-    store.dispatch({
-      type: "tenants/added",
-      payload: {
-        id,
-        name: data.name,
-        owner: data.owner,
-        mobile: data.mobile,
-        email: data.email || undefined,
-        status: "Active",
-        plan: data.plan,
-        users: 1,
-        createdAt: ymd(now),
-        subscriptionExpiresAt: expires,
-        subscriptionHistory: [
-          newSubscriptionRecord({
-            plan: data.plan,
-            amount: planPriceOf(data.plan),
-            payDate: ymd(now),
-            startsOn: ymd(now),
-            endsOn: expires,
-          }),
-        ],
-      },
-    });
-    setPage(1);
-    setShowTenantForm(false);
-    void createAccount({
+  function createTenant(data: NewTenant, apiResponse?: unknown) {
+  const apiData = apiResponse as { password?: string } | undefined;
+  const latestId = items.reduce(
+    (latest, tenant) =>
+      Math.max(latest, Number(tenant.id.replace(/\D/g, "")) || 0),
+    0,
+  );
+  const id = `TEN${String(latestId + 1).padStart(3, "0")}`;
+  const password = apiData?.password || generateTempPassword();
+  const now = new Date();
+  const planLabel = data.planName || data.planId;
+  const expires = planExpiry(planLabel, now);
+
+  store.dispatch({
+    type: "tenants/added",
+    payload: {
+      id,
+      name: data.name,
+      owner: data.owner,
       mobile: data.mobile,
       email: data.email || undefined,
-      name: data.owner,
-      role: "owner",
-      tenantId: id,
-      password,
-    });
-    setCredentials({
-      owner: data.owner,
-      centre: data.name,
-      mobile: data.mobile,
-      password,
-    });
-  }
+      status: "Active",
+      plan: planLabel,
+      users: 1,
+      createdAt: ymd(now),
+      subscriptionExpiresAt: expires,
+      subscriptionHistory: [
+        newSubscriptionRecord({
+          plan: planLabel,
+          amount: planPriceOf(planLabel),
+          payDate: ymd(now),
+          startsOn: ymd(now),
+          endsOn: expires,
+        }),
+      ],
+    },
+  });
+
+  setPage(1);
+  setShowTenantForm(false);
+
+  void createAccount({
+    mobile: data.mobile,
+    email: data.email || undefined,
+    name: data.owner,
+    role: "owner",
+    tenantId: id,
+    password,
+  });
+
+  setCredentials({
+    owner: data.owner,
+    centre: data.name,
+    mobile: data.mobile,
+    password,
+  });
+}
 
   function changeFilter(filter: TenantFilter) {
     setPage(1);

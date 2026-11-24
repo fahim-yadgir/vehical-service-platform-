@@ -1,40 +1,78 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, LogOut, ShieldCheck } from "lucide-react";
 import Topbar from "../../../../components/navbar/Topbar";
 import Button from "../../../../components/ui/Button";
 import PasswordInput from "../../../../components/ui/PasswordInput";
-import { clearSession, roleLabels } from "../../../../lib/auth";
+import { clearSession, roleLabels, signOut } from "../../../../lib/auth";
 
 /** At least 8 characters, with a letter and a number. */
-const strongEnough = (value: string) => value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value);
+const strongEnough = (value: string) =>
+  value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value);
 
 export default function AdminProfile() {
   const router = useRouter();
   const [form, setForm] = useState({ current: "", next: "", confirm: "" });
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
   const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [field]: e.target.value });
-    setError("");
-    setDone(false);
-  };
+  const { value } = e.target;
+  setForm((f) => ({ ...f, [field]: value }));
+  setError("");
+  setDone(false);
+};
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: SyntheticEvent) => {
     e.preventDefault();
-    if (!strongEnough(form.next)) return setError("New password must be at least 8 characters and include a letter and a number.");
-    if (form.next === form.current) return setError("New password must be different from the current password.");
-    if (form.next !== form.confirm) return setError("New password and confirm password do not match.");
-    // Backend later: send current + new password to the API, which checks the current one.
-    setForm({ current: "", next: "", confirm: "" });
-    setDone(true);
+    if (loading) return;
+    if (!strongEnough(form.next)) {
+      return setError("New password must be at least 8 characters and include a letter and a number.");
+    }
+    if (form.next === form.current) {
+      return setError("New password must be different from the current password.");
+    }
+    if (form.next !== form.confirm) {
+      return setError("New password and confirm password do not match.");
+    }
+
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: form.current,
+          newPassword: form.next,
+        }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+
+      if (res.status === 401) {
+        clearSession();
+        window.location.href = "/admin/login";
+        return;
+      }
+      if (!res.ok) {
+        setError(data?.error ?? "Could not change the password. Please try again.");
+        return;
+      }
+
+      setForm({ current: "", next: "", confirm: "" });
+      setDone(true);
+    } catch {
+      setError("Network error. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const logout = () => {
-    clearSession();
+  const logout = async () => {
+    await signOut();
     router.replace("/admin/login");
   };
 
@@ -58,18 +96,45 @@ export default function AdminProfile() {
             <p className="mt-1 text-sm text-slate-500">Use at least 8 characters with a letter and a number.</p>
           </div>
 
-          <PasswordInput label="Current password" maxLength={32} value={form.current} onChange={set("current")} autoComplete="current-password" required />
-          <PasswordInput label="New password" maxLength={32} value={form.next} onChange={set("next")} autoComplete="new-password" required />
-          <PasswordInput label="Confirm new password" maxLength={32} value={form.confirm} onChange={set("confirm")} autoComplete="new-password" required />
+          <PasswordInput
+            label="Current password"
+            maxLength={32}
+            value={form.current}
+            onChange={set("current")}
+            autoComplete="current-password"
+            required
+          />
+          <PasswordInput
+            label="New password"
+            maxLength={32}
+            value={form.next}
+            onChange={set("next")}
+            autoComplete="new-password"
+            required
+          />
+          <PasswordInput
+            label="Confirm new password"
+            maxLength={32}
+            value={form.confirm}
+            onChange={set("confirm")}
+            autoComplete="new-password"
+            required
+          />
 
-          {error && <p role="alert" className="text-sm font-semibold text-rose-600">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm font-semibold text-rose-600">
+              {error}
+            </p>
+          )}
           {done && (
             <p role="status" className="flex items-center gap-1.5 text-sm font-bold text-emerald-600">
               <CheckCircle2 size={16} /> Password changed successfully.
             </p>
           )}
 
-          <Button type="submit">Update password</Button>
+          <Button type="submit" loading={loading}>
+            Update password
+          </Button>
         </form>
 
         <div className="card mx-auto flex max-w-xl items-center justify-between gap-4 p-5">
@@ -77,7 +142,11 @@ export default function AdminProfile() {
             <h3 className="font-black text-slate-900">Log out</h3>
             <p className="text-sm text-slate-500">Sign out of this device.</p>
           </div>
-          <button type="button" onClick={logout} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50">
+          <button
+            type="button"
+            onClick={logout}
+            className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50"
+          >
             <LogOut size={16} /> Logout
           </button>
         </div>

@@ -295,7 +295,7 @@ var DOQueueHandler = class extends DurableObject {
           // We cannot use the deduplication id because it's not unique per route - every time a route is revalidated, the deduplication id is different.
           routeKey,
           revalidationStartSeconds,
-          "63Lb9euWi7oRHkuByouGb"
+          "nTmw1NOvW4BVOzmZ5LSP1"
         );
       }
       this.removeFromFailedState(msg.MessageDeduplicationId);
@@ -351,7 +351,7 @@ var DOQueueHandler = class extends DurableObject {
     }
     this.routeInFailedState.set(msg.MessageDeduplicationId, updatedFailedState);
     if (!this.disableSQLite) {
-      this.sql.exec("INSERT OR REPLACE INTO failed_state (id, data, buildId) VALUES (?, ?, ?)", msg.MessageDeduplicationId, JSON.stringify(updatedFailedState), "63Lb9euWi7oRHkuByouGb");
+      this.sql.exec("INSERT OR REPLACE INTO failed_state (id, data, buildId) VALUES (?, ?, ?)", msg.MessageDeduplicationId, JSON.stringify(updatedFailedState), "nTmw1NOvW4BVOzmZ5LSP1");
     }
     await this.addAlarm();
   }
@@ -405,8 +405,8 @@ var DOQueueHandler = class extends DurableObject {
       return;
     this.sql.exec("CREATE TABLE IF NOT EXISTS failed_state (id TEXT PRIMARY KEY, data TEXT, buildId TEXT)");
     this.sql.exec("CREATE TABLE IF NOT EXISTS sync (id TEXT PRIMARY KEY, lastSuccess INTEGER, buildId TEXT)");
-    this.sql.exec("DELETE FROM failed_state WHERE buildId != ?", "63Lb9euWi7oRHkuByouGb");
-    this.sql.exec("DELETE FROM sync WHERE buildId != ?", "63Lb9euWi7oRHkuByouGb");
+    this.sql.exec("DELETE FROM failed_state WHERE buildId != ?", "nTmw1NOvW4BVOzmZ5LSP1");
+    this.sql.exec("DELETE FROM sync WHERE buildId != ?", "nTmw1NOvW4BVOzmZ5LSP1");
     const failedStateCursor = this.sql.exec("SELECT * FROM failed_state");
     for (const row of failedStateCursor) {
       this.routeInFailedState.set(row.id, JSON.parse(row.data));
